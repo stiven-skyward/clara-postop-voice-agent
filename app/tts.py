@@ -83,23 +83,40 @@ def synthesize(text: str) -> tuple[bytes, int]:
         return get_engine().synth(t)
 
 
-_SENT_END = re.compile(r"([.!?…]|:\s)\s*$")
+_SENT_SPLIT = re.compile(r"(?<=[.!?…])\s+")
 
 
 class SentenceStreamer:
-    """Acumula tokens del LLM y suelta oraciones completas para el TTS."""
+    """Acumula tokens del LLM y suelta oraciones completas para el TTS.
+
+    Emite la PRIMERA oración en cuanto existe (aunque lleguen varias de golpe):
+    la latencia percibida la define el primer audio, no el último.
+    """
 
     def __init__(self, min_chars: int = 25) -> None:
         self.buf = ""
         self.min_chars = min_chars
 
-    def push(self, token: str) -> str | None:
+    def push(self, token: str) -> list[str]:
         self.buf += token
-        if len(self.buf) >= self.min_chars and _SENT_END.search(self.buf):
-            out, self.buf = self.buf, ""
-            return out.strip()
-        return None
+        parts = _SENT_SPLIT.split(self.buf)
+        out: list[str] = []
+        while len(parts) > 1 and len(parts[0]) >= self.min_chars:
+            out.append(parts.pop(0).strip())
+        self.buf = " ".join(parts) if len(parts) > 1 else parts[0] if parts else ""
+        return out
 
     def flush(self) -> str | None:
         out, self.buf = self.buf.strip(), ""
         return out or None
+
+
+_phrase_cache: dict[str, tuple[bytes, int]] = {}
+
+
+def synthesize_cached(text: str) -> tuple[bytes, int]:
+    """Como synthesize(), con caché para frases fijas (saludo, escalamiento)."""
+    key = text.strip()
+    if key not in _phrase_cache:
+        _phrase_cache[key] = synthesize(key)
+    return _phrase_cache[key]

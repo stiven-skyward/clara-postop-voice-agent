@@ -37,7 +37,34 @@ def _startup() -> None:
     llm.ensure_server()
     # precalienta modelos para que la primera llamada no pague la carga
     threading.Thread(target=stt.get_model, daemon=True).start()
-    threading.Thread(target=tts.get_engine, daemon=True).start()
+    threading.Thread(target=_warm_tts_phrases, daemon=True).start()
+    threading.Thread(target=_warm_llm, daemon=True).start()
+
+
+def _warm_tts_phrases() -> None:
+    """Pre-sintetiza las frases fijas críticas (1ª oración del escalamiento)."""
+    try:
+        tts.synthesize_cached("Por lo que me cuenta, esto lo debe revisar el equipo médico hoy mismo.")
+    except Exception:
+        pass
+
+
+def _warm_llm() -> None:
+    """Prima la caché de prompt de ambos slots (extracción y conversación):
+    el primer turno real solo prefill-ea los tokens nuevos."""
+    from app.agent import prompts as pr
+    try:
+        llm.structured(
+            [{"role": "system", "content": pr.SYSTEM_EXTRACCION},
+             {"role": "user", "content": "hola"}],
+            pr.SCHEMA_EXTRACCION, max_tokens=8)
+        sys_conv = pr.SYSTEM_CONVERSACION.format(
+            nombre="Paciente", edad=50, procedimiento="cirugía", dia_postop=1)
+        list(llm.chat_stream(
+            [{"role": "system", "content": sys_conv},
+             {"role": "user", "content": "hola"}], max_tokens=4))
+    except Exception:
+        pass
 
 
 @app.get("/")
@@ -154,9 +181,9 @@ async def ws_call(ws: WebSocket):
 
     send_task = asyncio.create_task(sender())
 
-    def speak(text: str, tm: metrics.TurnMetrics | None) -> None:
+    def speak(text: str, tm: metrics.TurnMetrics | None, cached: bool = False) -> None:
         """Sintetiza y envía una oración; marca primer audio si aplica."""
-        pcm, sr = tts.synthesize(text)
+        pcm, sr = (tts.synthesize_cached if cached else tts.synthesize)(text)
         if not pcm:
             return
         if tm is not None and "t_tts_first_audio" not in tm.d:
@@ -191,9 +218,9 @@ async def ws_call(ws: WebSocket):
                 tm.mark("llm_first_token")
                 first_tok = True
             reply_parts.append(tok)
-            sent = streamer.push(tok)
-            if sent:
-                speak(sent, tm)
+            for sent in streamer.push(tok):
+                # la 1ª oración del escalamiento rojo está pre-sintetizada
+                speak(sent, tm, cached=sent.startswith("Por lo que me cuenta"))
         rest = streamer.flush()
         if rest and not cancel.is_set():
             speak(rest, tm)
@@ -223,7 +250,12 @@ async def ws_call(ws: WebSocket):
                     text = greeting(state)
 
                     def _greet(t=text):
-                        speak(t, None)
+                        st = tts.SentenceStreamer()
+                        for sent in st.push(t):
+                            speak(sent, None)
+                        rest = st.flush()
+                        if rest:
+                            speak(rest, None)
                         send({"type": "agent_text", "text": t,
                               "triaje": "verde", "alerta": False})
                         send({"type": "turn_end"})

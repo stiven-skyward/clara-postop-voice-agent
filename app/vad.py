@@ -26,6 +26,7 @@ class StreamingVAD:
 
     def reset(self) -> None:
         self._state = np.zeros((2, 1, 128), dtype=np.float32)
+        self._ctx = np.zeros(64, dtype=np.float32)  # contexto exigido por silero v5
         self._buf = np.zeros(0, dtype=np.float32)
         self._speech: list[np.ndarray] = []
         self._pre: list[np.ndarray] = []          # pre-roll ~300 ms
@@ -33,11 +34,13 @@ class StreamingVAD:
         self._silence_ms = 0.0
 
     def _prob(self, chunk: np.ndarray) -> float:
+        x = np.concatenate([self._ctx, chunk])[None, :]
         out, self._state = self.sess.run(
             None,
-            {"input": chunk[None, :], "state": self._state,
+            {"input": x, "state": self._state,
              "sr": np.array(SR, dtype=np.int64)},
         )
+        self._ctx = chunk[-64:]
         return float(out[0, 0])
 
     def feed(self, samples: np.ndarray) -> list[tuple[str, np.ndarray | None]]:

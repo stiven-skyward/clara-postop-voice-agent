@@ -29,12 +29,13 @@ LLAMA_SERVER_BIN = MODELS_DIR / "llama-b10313" / "llama-server"
 
 # --- STT (whisper.cpp vía pywhispercpp) ---
 STT_MODEL = MODELS_DIR / ("ggml-small-q5_1.bin" if PROFILE == "principal" else "ggml-base-q5_1.bin")
-STT_THREADS = int(os.getenv("POSTOP_STT_THREADS", "4"))
+STT_THREADS = int(os.getenv("POSTOP_STT_THREADS", "6"))
 # Léxico que orienta a Whisper hacia el dominio (initial_prompt)
 STT_PROMPT = (
     "Llamada de seguimiento postoperatorio en Colombia. Apendicectomía, colecistectomía, "
     "colectomía, mastectomía, reemplazo de cadera o rodilla. Dolor, fiebre, herida, "
-    "enrojecimiento, secreción, hinchazón, acetaminofén, ibuprofeno."
+    "enrojecimiento, secreción, hinchazón, acetaminofén, ibuprofeno. "
+    "Tengo treinta y ocho punto cinco de fiebre. El dolor está en siete de diez."
 )
 
 # --- TTS ---

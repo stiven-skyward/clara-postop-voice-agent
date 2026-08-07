@@ -48,6 +48,12 @@ class SymptomState:
     otros: list[str] = field(default_factory=list)
 
     def merge(self, ext: dict) -> None:
+        # plausibilidad clínica: una "temperatura" fuera de 34-43 °C es casi
+        # seguro un error de transcripción → se descarta el número y se marca
+        # fiebre subjetiva para que el agente la confirme preguntando
+        fc = ext.get("fiebre_c")
+        if fc is not None and not (34.0 <= float(fc) <= 43.0):
+            ext = {**ext, "fiebre_c": None, "fiebre_subjetiva": True}
         for k in ("dolor_nrs", "fiebre_c", "fiebre_subjetiva", "herida",
                   "dolor_empeora", "sangrado", "disnea", "vomito_persistente"):
             v = ext.get(k)
@@ -153,6 +159,23 @@ def evaluate(s: SymptomState, procedimiento: str = "", dia_postop: int = 1) -> T
     if razones_amarillo:
         return TriageResult("amarillo", razones_amarillo, faltantes)
     return TriageResult("verde", ["Sin signos de alarma en lo reportado"], faltantes)
+
+
+_QUICK_RED = _RED_TEXT + [
+    "huele feo", "huele mal", "mal olor", "liquido amarillo", "liquidito amarillo",
+    "liquido verde", "no aguanto el dolor", "dolor insoportable",
+]
+
+
+def quick_red_scan(text: str) -> str | None:
+    """Barrido léxico instantáneo (sin LLM) de señales rojas en el turno crudo.
+    Permite responder el escalamiento en <1 s; la extracción formal corre después
+    para el registro. Devuelve la señal detectada o None."""
+    tn = _norm(text)
+    for kw in _QUICK_RED:
+        if kw in tn:
+            return kw
+    return None
 
 
 def combine(previous: str, new: str) -> str:

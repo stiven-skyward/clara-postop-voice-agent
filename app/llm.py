@@ -27,10 +27,16 @@ def ensure_server() -> None:
         return
     except Exception:
         pass
+    # -np 2: un slot para extracción/estructura y otro para conversación —
+    # llama-server enruta por prefijo más largo, así cada tipo de llamada
+    # conserva su caché de prompt (crítico para el prefill en CPU).
+    # KV q8_0 + flash-attn: mismo contexto con la mitad de RAM de KV.
     subprocess.Popen(
         [
             str(config.LLAMA_SERVER_BIN), "-m", str(config.LLM_MODEL),
-            "-c", str(config.LLM_CTX), "-t", str(config.LLM_THREADS),
+            "-c", str(config.LLM_CTX * 2), "-np", "2",
+            "-t", str(config.LLM_THREADS),
+            "-fa", "on", "-ctk", "q8_0", "-ctv", "q8_0",
             "--host", config.LLM_HOST, "--port", str(config.LLM_PORT),
         ],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,

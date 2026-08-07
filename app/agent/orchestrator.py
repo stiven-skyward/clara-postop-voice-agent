@@ -19,7 +19,8 @@ from typing import Iterator
 
 from app import config, llm, metrics
 from app.agent import prompts
-from app.agent.triage import SymptomState, TriageResult, combine, evaluate
+from app.agent.triage import (SymptomState, TriageResult, combine, evaluate,
+                              quick_red_scan)
 from app.rag.search import Source, get_searcher
 
 
@@ -88,12 +89,25 @@ def _format_sources(sources: list[Source]) -> str:
     return "\n\n".join(blocks)
 
 
+# La primera oración es estática a propósito: está pre-sintetizada en caché de
+# TTS, así el escalamiento rojo empieza a sonar de inmediato.
 _ESCALATION_MSG = (
-    "{nombre}, por lo que me cuenta, esto lo debe revisar el equipo médico hoy mismo. "
-    "Voy a generar una alerta ahora para que le devuelvan la llamada lo antes posible. "
+    "Por lo que me cuenta, esto lo debe revisar el equipo médico hoy mismo. "
+    "{nombre}, voy a generar una alerta ahora para que le devuelvan la llamada lo antes posible. "
     "Si presenta más síntomas o se siente peor, no espere: acuda a urgencias de una vez. "
     "¿Me confirma que quedó claro?"
 )
+
+
+_CLINICAL_HINTS = re.compile(
+    r"dolor|duele|fiebre|calentura|temperatura|herida|sangr|mareo|vomit|nause|"
+    r"respir|hinch|roj|secre|liquid|pus|comer|apetito|dorm|sueño|camin|mover|"
+    r"pierna|brazo|pecho|cabeza|barriga|estomago|estómago|punto|grado|\?|\d",
+    re.IGNORECASE)
+
+
+def _worth_extracting(text: str) -> bool:
+    return len(text) > 80 or bool(_CLINICAL_HINTS.search(text))
 
 
 def process_turn(state: CallState, user_text: str,
@@ -103,16 +117,52 @@ def process_turn(state: CallState, user_text: str,
     stats = llm.LLMStats()
     p = state.patient
 
-    # 1) Extracción estructurada
+    # 0) Atajo de seguridad: señal roja léxica → escalar YA (<1 s), sin esperar
+    #    al LLM. La extracción corre después solo para completar el registro.
+    señal = quick_red_scan(user_text)
+    if señal and not state.alerted:
+        state.nivel = "rojo"
+        state.alerted = True
+        text = _ESCALATION_MSG.format(nombre=p.nombre.split()[0])
+        tm.set(triaje="rojo", escalado=True, atajo_lexico=señal)
+        yield text
+        state.history.append({"role": "user", "content": user_text})
+        state.history.append({"role": "assistant", "content": text})
+        try:
+            ext = llm.structured(
+                [{"role": "system", "content": prompts.SYSTEM_EXTRACCION},
+                 {"role": "user", "content": user_text}],
+                prompts.SCHEMA_EXTRACCION, stats=stats, max_tokens=260)
+            state.symptoms.merge(ext)
+        except Exception:
+            state.symptoms.otros.append(user_text[:120])
+        tri = evaluate(state.symptoms, p.procedimiento, p.dia_postop)
+        state.razones = tri.razones or [f"Señal de alarma textual: «{señal}»"]
+        if f"Señal de alarma textual: «{señal}»" not in state.razones:
+            state.razones.append(f"Señal de alarma textual: «{señal}»")
+        metrics.log_alert(state.call_id, {
+            "paciente": p.nombre, "paciente_id": p.paciente_id,
+            "procedimiento": p.procedimiento, "dia_postop": p.dia_postop,
+            "nivel": "rojo", "razones": state.razones,
+            "sintomas": state.symptoms.as_dict(),
+            "transcripcion_disparadora": user_text,
+        })
+        tm.set(tokens_in=stats.prompt_tokens, tokens_out=stats.completion_tokens,
+               llm_calls=stats.calls, rag_queries=0)
+        return
+
+    # 1) Extracción estructurada (solo si el turno puede contener información
+    #    clínica o una pregunta; un "sí señora" corto no paga LLM)
     ext = {}
-    try:
-        ext = llm.structured(
-            [{"role": "system", "content": prompts.SYSTEM_EXTRACCION},
-             {"role": "user", "content": user_text}],
-            prompts.SCHEMA_EXTRACCION, stats=stats, max_tokens=260,
-        )
-    except Exception:
-        ext = {"otros": [], "pregunta": None}
+    if _worth_extracting(user_text):
+        try:
+            ext = llm.structured(
+                [{"role": "system", "content": prompts.SYSTEM_EXTRACCION},
+                 {"role": "user", "content": user_text}],
+                prompts.SCHEMA_EXTRACCION, stats=stats, max_tokens=260,
+            )
+        except Exception:
+            ext = {"otros": [], "pregunta": None}
     state.symptoms.merge(ext)
 
     # 2) Triaje determinista (solo sube)
