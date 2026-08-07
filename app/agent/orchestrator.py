@@ -20,7 +20,7 @@ from typing import Iterator
 from app import config, llm, metrics
 from app.agent import prompts
 from app.agent.triage import (SymptomState, TriageResult, combine, evaluate,
-                              quick_red_scan)
+                              quick_red_scan, sanitize_extraction)
 from app.rag.search import Source, get_searcher
 
 
@@ -133,7 +133,7 @@ def process_turn(state: CallState, user_text: str,
                 [{"role": "system", "content": prompts.SYSTEM_EXTRACCION},
                  {"role": "user", "content": user_text}],
                 prompts.SCHEMA_EXTRACCION, stats=stats, max_tokens=260)
-            state.symptoms.merge(ext)
+            state.symptoms.merge(sanitize_extraction(ext, user_text))
         except Exception:
             state.symptoms.otros.append(user_text[:120])
         tri = evaluate(state.symptoms, p.procedimiento, p.dia_postop)
@@ -163,6 +163,7 @@ def process_turn(state: CallState, user_text: str,
             )
         except Exception:
             ext = {"otros": [], "pregunta": None}
+    ext = sanitize_extraction(ext, user_text)
     state.symptoms.merge(ext)
 
     # 2) Triaje determinista (solo sube)

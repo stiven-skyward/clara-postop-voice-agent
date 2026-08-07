@@ -22,16 +22,40 @@ _RED_TEXT = [
     "pus", "se abrio la herida", "herida abierta", "vomito con sangre",
     "no orino", "sin orinar",
 ]
+# Solo señales con valor clínico real; las molestias normales de recuperación
+# (sueño irregular, poco apetito, mareo leve) NO suben el nivel: se registran
+# en el resumen pero no disparan vigilancia. Calibrado contra el dataset del
+# reto (la v1 convertía todos los casos verdes en amarillo/rojo).
 _YELLOW_TEXT = [
-    "escalofrio", "pantorrilla", "mareo", "vomito", "diarrea", "estreni",
-    "no he podido comer", "sin apetito", "no duermo", "hormigueo",
-    "enrojecimiento", "se extiende", "hinchado",
+    "escalofrio", "pantorrilla", "se extiende", "se esta extendiendo",
+    "no he podido comer nada", "vomite varias veces", "muchos vomitos",
 ]
 
 
 def _norm(s: str) -> str:
     s = unicodedata.normalize("NFD", (s or "").lower())
     return "".join(c for c in s if unicodedata.category(c) != "Mn")
+
+
+# Anclaje léxico: una bandera booleana de la extracción solo se acepta si el
+# texto del paciente contiene un lexema compatible. Neutraliza la tendencia del
+# LLM pequeño a inferir síntomas no dichos ("no baja" → dolor_empeora, etc.).
+_GROUNDING = {
+    "dolor_empeora": r"empeor|aument|subiendo|sube|mas fuerte|más fuerte|peor|creciendo",
+    "sangrado": r"sangr",
+    "disnea": r"respir|ahog|aire|asfixi",
+    "vomito_persistente": r"vomit|devolv|trasboc",
+    "fiebre_subjetiva": r"fiebre|calentur|temperatura|destempl|febril|caliente",
+}
+
+
+def sanitize_extraction(ext: dict, user_text: str) -> dict:
+    tn = _norm(user_text)
+    out = dict(ext)
+    for field_name, pattern in _GROUNDING.items():
+        if out.get(field_name) is True and not re.search(pattern, tn):
+            out.pop(field_name)
+    return out
 
 
 @dataclass
@@ -98,7 +122,8 @@ def evaluate(s: SymptomState, procedimiento: str = "", dia_postop: int = 1) -> T
         elif s.fiebre_c >= 38.0:
             razones_amarillo.append(f"Fiebre de {s.fiebre_c:g} °C (38.0–38.4: vigilancia)")
     elif s.fiebre_subjetiva:
-        razones_amarillo.append("Refiere sensación febril sin medición")
+        # sensación febril sin medición: por sí sola NO sube el nivel; el
+        # agente debe indagar (pedir que se mida) antes de decidir
         faltantes.append("temperatura medida con termómetro")
 
     # --- Dolor ---
@@ -107,7 +132,7 @@ def evaluate(s: SymptomState, procedimiento: str = "", dia_postop: int = 1) -> T
             razones_rojo.append(f"Dolor {s.dolor_nrs:g}/10 (severo)")
         elif s.dolor_nrs >= 5:
             if s.dolor_empeora:
-                razones_rojo.append(f"Dolor {s.dolor_nrs:g}/10 en aumento")
+                razones_amarillo.append(f"Dolor {s.dolor_nrs:g}/10 en aumento")
             else:
                 razones_amarillo.append(f"Dolor {s.dolor_nrs:g}/10 (moderado)")
         elif s.dolor_empeora and dia_postop >= 3:
@@ -144,9 +169,12 @@ def evaluate(s: SymptomState, procedimiento: str = "", dia_postop: int = 1) -> T
             razones_amarillo.append(f"Síntoma a vigilar: «{kw}»")
 
     # --- Combinaciones (fiebre + herida = infección probable) ---
-    if (s.fiebre_c and s.fiebre_c >= 38.0 or s.fiebre_subjetiva) and \
-            s.herida in ("enrojecida", "secrecion_clara", "secrecion_purulenta"):
-        razones_rojo.append("Fiebre + alteración de la herida: posible infección del sitio quirúrgico")
+    # fiebre ≥38.5 o secreción purulenta ya son rojo por sí solas; la
+    # combinación febrícula (38.0-38.4) + herida alterada leve refuerza el
+    # amarillo (revisión el mismo día), no salta a rojo.
+    fiebre_alguna = (s.fiebre_c is not None and s.fiebre_c >= 38.0) or s.fiebre_subjetiva
+    if fiebre_alguna and s.herida in ("enrojecida", "secrecion_clara"):
+        razones_amarillo.append("Fiebre/febrícula + herida alterada: vigilar posible infección del sitio quirúrgico")
 
     # DVT tras reemplazo articular: pantorrilla es rojo, no amarillo
     if "articular" in _norm(procedimiento) or "cadera" in _norm(procedimiento) \

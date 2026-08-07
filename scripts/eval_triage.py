@@ -18,7 +18,8 @@ import pandas as pd
 
 from app import config, llm
 from app.agent import prompts
-from app.agent.triage import SymptomState, combine, evaluate
+from app.agent.orchestrator import _worth_extracting
+from app.agent.triage import SymptomState, combine, evaluate, sanitize_extraction
 
 N_VERDE = int(sys.argv[1]) if len(sys.argv) > 1 else 20
 CAPA = sys.argv[2] if len(sys.argv) > 2 else "capa1_limpia"
@@ -50,6 +51,8 @@ def main():
                    ].sort_values("turno_idx")
         state, nivel = SymptomState(), "verde"
         for _, t in turns.iterrows():
+            if not _worth_extracting(str(t.texto)):  # mismo gate que producción
+                continue
             try:
                 ext = llm.structured(
                     [{"role": "system", "content": prompts.SYSTEM_EXTRACCION},
@@ -57,7 +60,7 @@ def main():
                     prompts.SCHEMA_EXTRACCION, max_tokens=260)
             except Exception:
                 continue
-            state.merge(ext)
+            state.merge(sanitize_extraction(ext, str(t.texto)))
             tri = evaluate(state, proc.get(case.paciente, ""), int(case.dia))
             nivel = combine(nivel, tri.nivel)
         results.append({"caso_id": case.caso_id, "esperado": case.label,

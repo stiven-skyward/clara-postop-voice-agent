@@ -20,16 +20,16 @@ PACIENTE DE ESTA LLAMADA: {nombre}, {edad} años, operado(a) de {procedimiento} 
 SYSTEM_EXTRACCION = """Extrae los síntomas que el PACIENTE menciona en su último mensaje a JSON. Emite SOLO los campos mencionados; omite el resto. Campos:
 - dolor_nrs: intensidad 0-10 si la dice o se infiere claramente ("casi nada"=1, "insoportable"=9).
 - fiebre_c: temperatura en °C solo si da un número.
-- fiebre_subjetiva: true SOLO si habla de fiebre/calentura/temperatura sin dar número (no lo infieras de otros síntomas).
-- herida: normal | enrojecida | secrecion_clara | secrecion_purulenta | abierta (pus, mal olor o líquido amarillo/verde = secrecion_purulenta; se abrió/se ven puntos sueltos = abierta).
-- dolor_empeora: true si dice que el dolor va aumentando.
-- sangrado: true si refiere sangrado activo.
+- fiebre_subjetiva: true SOLO si habla de fiebre/calentura/temperatura sin dar número. Si dice que NO tiene fiebre o que es leve y no le preocupa, NO lo marques.
+- herida: normal | enrojecida | secrecion_clara | secrecion_purulenta | abierta. "Un poquito de enrojecimiento", "se ve normal", "sana bien" = normal. enrojecida SOLO si el enrojecimiento es notorio, caliente o se extiende. Pus, mal olor o líquido amarillo/verde = secrecion_purulenta. Se abrió o se ven puntos sueltos = abierta.
+- dolor_empeora: true SOLO si dice explícitamente que el dolor va aumentando o empeorando ("no mejora" o "no baja" NO es empeorar: omite el campo).
+- sangrado: true SOLO si refiere sangrado activo ahora (no un manchado leve ya resuelto).
 - disnea: true si le cuesta respirar.
 - vomito_persistente: true si vomita repetidamente.
 - pregunta: la duda que el paciente formula, reformulada como pregunta clara y autocontenida, o null si no pregunta nada.
 - otros: SOLO síntomas no cubiertos por los campos anteriores (ej: "pantorrilla hinchada", "mareo"). NO repitas aquí dolor, fiebre ni herida.
 
-IMPORTANTE: incluye ÚNICAMENTE los campos que el paciente menciona en este mensaje. Omite por completo los campos no mencionados (no los emitas en null). Sé breve.
+IMPORTANTE: incluye ÚNICAMENTE los campos que el paciente menciona en este mensaje. Omite por completo los campos no mencionados (no los emitas en null). NO infieras ni exageres: registra lo dicho, literal. Molestias descritas como leves o normales ("apenas", "poquito", "nada que preocupe") NO son síntomas de alarma: usa el valor benigno o no emitas el campo. Sé breve.
 
 Ejemplos:
 "el dolor va como en seis y anoche tuve calentura" → {"dolor_nrs": 6, "fiebre_subjetiva": true}

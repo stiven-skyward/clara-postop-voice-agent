@@ -180,6 +180,30 @@ async def ws_call(ws: WebSocket):
                 break
 
     send_task = asyncio.create_task(sender())
+    last_activity = {"t": time.monotonic(), "nudges": 0}
+
+    async def silence_watchdog():
+        """Si el paciente calla >15 s sin turno en curso, Clara retoma."""
+        while True:
+            await asyncio.sleep(5)
+            idle = time.monotonic() - last_activity["t"]
+            busy = worker is not None and worker.is_alive()
+            if state is not None and not busy and idle > 15 and last_activity["nudges"] < 3:
+                last_activity["t"] = time.monotonic()
+                last_activity["nudges"] += 1
+                frase = ("¿Sigue ahí? Tómese su tiempo, no hay afán."
+                         if last_activity["nudges"] < 3 else
+                         "Parece que se cortó la comunicación. Si me escucha, "
+                         "recuerde que puede volver a llamar cuando quiera. "
+                         "Que siga muy bien.")
+                def _nudge(f=frase):
+                    pcm, sr = tts.synthesize_cached(f)
+                    if pcm:
+                        send({"type": "audio_start", "sr": sr, "text": f})
+                        send(bytes(pcm))
+                threading.Thread(target=_nudge, daemon=True).start()
+
+    watchdog_task = asyncio.create_task(silence_watchdog())
 
     def speak(text: str, tm: metrics.TurnMetrics | None, cached: bool = False) -> None:
         """Sintetiza y envía una oración; marca primer audio si aplica."""
@@ -229,6 +253,7 @@ async def ws_call(ws: WebSocket):
               "triaje": state.nivel, "alerta": state.alerted})
         tm.save()
         send({"type": "turn_end"})
+        last_activity["t"] = time.monotonic()  # el silencio cuenta desde aquí
 
     try:
         while True:
@@ -267,8 +292,11 @@ async def ws_call(ws: WebSocket):
                 for ev, audio in vad.feed(samples):
                     if ev == "speech_start":
                         cancel.set()  # barge-in: corta la síntesis en curso
+                        last_activity["t"] = time.monotonic()
+                        last_activity["nudges"] = 0
                         send({"type": "user_speech_start"})
                     elif ev == "speech_end" and audio is not None:
+                        last_activity["t"] = time.monotonic()
                         if worker is not None and worker.is_alive():
                             continue  # aún procesando el turno anterior
                         cancel.clear()
@@ -279,6 +307,7 @@ async def ws_call(ws: WebSocket):
         pass
     finally:
         cancel.set()
+        watchdog_task.cancel()
         if state is not None:
             summary = await asyncio.to_thread(close_call, state)
             try:
