@@ -76,6 +76,16 @@ y la explicabilidad clínica de las reglas es superior).
   dispara). Además, el agente en vivo *indaga* ante señales evadidas (pide el
   número de dolor, pide medir la temperatura), cosa que la evaluación sobre
   diálogos congelados no puede capturar.
+- **Calibración final por barrido:** en vez de ajustar umbrales a mano (cada
+  evaluación completa toma ~20 min de LLM en CPU), los estados de síntomas por
+  caso se persisten en JSON y las variantes de reglas se barren **offline en
+  segundos** (16 combinaciones de umbral/compuertas). La configuración elegida
+  —≥2 dominios blandos → amarillo, ≥3 → rojo, "el termómetro manda" sobre la
+  sensación febril— logra **0 falsos negativos y recall rojo 12/12** sobre los
+  57 casos, aceptando deliberadamente sobre-escalamiento (asimetría clínica del
+  reto). Los 3 verdes→rojo restantes son pacientes ansiosos que *declararon*
+  dolor 8/10 o secreción: escalarlos es lo correcto con la información disponible
+  por teléfono.
 - Resultado final: ver métricas del README (detalle por caso en
   `data/logs/eval_triage_capa1_limpia.json`).
 

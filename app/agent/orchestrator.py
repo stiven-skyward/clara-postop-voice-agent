@@ -73,6 +73,16 @@ def greeting(state: CallState) -> str:
 
 
 def _next_checklist_hint(state: CallState) -> str | None:
+    # lo que el paciente ya contó espontáneamente no se vuelve a preguntar
+    s = state.symptoms
+    if s.dolor_nrs is not None:
+        state.checklist_done.add("dolor")
+    if s.fiebre_c is not None or s.fiebre_subjetiva is not None:
+        state.checklist_done.add("fiebre")
+    if s.herida is not None:
+        state.checklist_done.add("herida")
+    if s.apetito is not None or s.sueno is not None:
+        state.checklist_done.add("apetito_sueno")
     for key, desc in prompts.GUION_CHECKLIST:
         if key not in state.checklist_done:
             state.checklist_done.add(key)
@@ -83,7 +93,7 @@ def _next_checklist_hint(state: CallState) -> str | None:
 def _format_sources(sources: list[Source]) -> str:
     blocks = []
     for s in sources:
-        body = s.texto[:1500]
+        body = s.texto[:800]  # prefill acotado: latencia de voz en CPU
         blocks.append(f"[{s.n}] «{s.titulo}» — sección: {s.seccion} "
                       f"(págs. {s.pagina_ini}-{s.pagina_fin})\n{body}")
     return "\n\n".join(blocks)
@@ -222,15 +232,29 @@ def process_turn(state: CallState, user_text: str,
         elif not pregunta:
             guidance.append("El chequeo está completo: ofrece resolver dudas o despedirte con los próximos pasos.")
 
-    msgs = list(state.history)
-    msgs.append({"role": "user", "content": user_text})
-    ctrl = ""
     if sources:
-        ctrl += prompts.PLANTILLA_FUENTES.format(fuentes=_format_sources(sources)) + "\n\n"
-    if guidance:
-        ctrl += "INSTRUCCIÓN PARA ESTE TURNO (no la menciones): " + " ".join(guidance)
-    if ctrl:
-        msgs.append({"role": "system", "content": ctrl})
+        # Respuesta factual con fuentes: llamada LIMPIA sin historial — el
+        # prefill de la conversación entera + fuentes costaría 20-30 s en un
+        # CPU de 4 núcleos. El contexto clínico va comprimido en una línea.
+        ctx = (f"Paciente: {p.nombre.split()[0]}, {p.procedimiento}, día "
+               f"postoperatorio {p.dia_postop}, triaje {state.nivel}.")
+        msgs = [
+            {"role": "system", "content":
+             "Eres «Clara», asistente de voz de seguimiento postoperatorio en Colombia. "
+             "Responde la duda del paciente en máximo 2-3 frases habladas, en español, "
+             "trato de usted, usando SOLO las fuentes y citando [n]. Si las fuentes no "
+             "responden la duda, dilo honestamente y ofrece remitirla al equipo de salud.\n\n"
+             + prompts.PLANTILLA_FUENTES.format(fuentes=_format_sources(sources))},
+            {"role": "user", "content": f"{ctx}\nDuda: {pregunta}\n({user_text})"},
+        ]
+        if guidance and not pregunta:
+            msgs.append({"role": "system", "content": " ".join(guidance)})
+    else:
+        msgs = list(state.history)
+        msgs.append({"role": "user", "content": user_text})
+        if guidance:
+            msgs.append({"role": "system", "content":
+                         "INSTRUCCIÓN PARA ESTE TURNO (no la menciones): " + " ".join(guidance)})
 
     parts: list[str] = []
     for tok in llm.chat_stream(msgs, stats=stats):
@@ -240,9 +264,10 @@ def process_turn(state: CallState, user_text: str,
 
     state.history.append({"role": "user", "content": user_text})
     state.history.append({"role": "assistant", "content": reply})
-    # poda de historial para no desbordar el contexto de 4K en llamadas largas
-    if len(state.history) > 26:
-        state.history = state.history[:1] + state.history[-20:]
+    # poda de historial: en voz el contexto clínico vive en SymptomState, no
+    # hace falta arrastrar toda la conversación (prefill caro en CPU)
+    if len(state.history) > 15:
+        state.history = state.history[:1] + state.history[-12:]
 
     tm.set(tokens_in=stats.prompt_tokens, tokens_out=stats.completion_tokens,
            llm_calls=stats.calls, rag_queries=1 if pregunta else 0,

@@ -94,17 +94,43 @@ negativo = falla catastrófica (asimetría clínica del reto).
 Se loggean automáticamente por turno en `data/logs/turnos.jsonl` y se agregan en
 `GET /api/metrics` (visibles en la consola /admin).
 
-<!-- METRICAS: se actualizan con la medición real -->
+Medidas en CPU restringida a **4 núcleos** (`taskset -c 0-3`, hilos LLM/STT = 4),
+perfil `principal` (whisper small + Kokoro), sobre 4 llamadas E2E sintéticas
+(10 turnos: casos rojo con escalamiento y verde con pregunta al RAG):
+
 | Métrica | Valor medido |
 |---|---|
-| Latencia P50 (fin de habla → primer audio) | _pendiente de medición final_ |
-| Latencia P95 | _pendiente_ |
-| Tokens entrada/salida por turno (prom.) | _pendiente_ |
-| Invocaciones LLM por turno | 2 (extracción + respuesta; +1 resumen por llamada) |
-| Consultas RAG por llamada | _pendiente_ |
-| Costo por llamada | $0 local; extrapolado a API: _pendiente_ |
+| Latencia P50 (fin de habla → primer audio) | **11.8 s** |
+| Latencia P95 | **28.2 s** (turno RAG con caché fría; caliente: ~9 s) |
+| Tokens por turno (entrada / salida, prom.) | 1 212 / 75 |
+| Tokens por llamada (prom.) | 3 218 |
+| Invocaciones LLM por turno (prom.) | 1.6 (extracción condicionada + respuesta; el atajo rojo léxico responde sin LLM) |
+| Consultas RAG por llamada (prom.) | 0.5 (solo cuando el paciente pregunta) |
+| Costo por llamada | **$0 real (local)** · extrapolado a API pública: ~$0.002 (Groq Llama-3.3-70B) / ~$0.0014 (Gemini Flash) — tokens medidos × tarifa por 1M |
 
-Verificación: `data/logs/turnos.jsonl`, `llamadas.jsonl`, `alertas.jsonl`.
+Notas de honestidad: los valores se midieron en una máquina de desarrollo que además
+ejecutaba un entrenamiento pesado ajeno al proyecto (condiciones pesimistas); el
+desglose por turno está en `data/logs/turnos.jsonl` y se agrega en `GET /api/metrics`.
+En el escalamiento rojo por señal léxica el primer audio llega en **~7 s** (STT ~4 s +
+frase pre-sintetizada). El perfil `ligero` (whisper base + Piper) recorta ~3 s
+adicionales de STT/TTS por turno.
+
+**Lógica de decisión (evaluada contra el dataset del reto, capa limpia, 57 casos:
+12 rojos + 25 amarillos + 20 verdes):**
+
+| Métrica de triaje | Resultado |
+|---|---|
+| Falsos negativos (subestimación de nivel) | **0 / 57** |
+| Recall de casos rojos | **12 / 12** |
+| Matriz completa | verde: 12-5-3 · amarillo: 0-7-18 · rojo: 0-0-12 (filas=real, cols=verde/amarillo/rojo) |
+
+Calibración deliberadamente sensible (asimetría clínica del reto): el costo del
+0 % de subestimación es sobre-escalamiento en casos ambiguos. Detalle y método en
+[`docs/INFORME-FINAL.md`](docs/INFORME-FINAL.md) §2; reproducible con
+`scripts/eval_triage.py`.
+
+Verificación: `data/logs/turnos.jsonl`, `llamadas.jsonl`, `alertas.jsonl`,
+`eval_triage_capa1_limpia.json`.
 
 ## Estructura
 

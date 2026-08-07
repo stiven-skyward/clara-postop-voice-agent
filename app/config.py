@@ -62,7 +62,9 @@ PARENT_MAX_TOKENS = 1100  # tamaño máximo de sección padre
 TOP_K_LEXICAL = 30
 TOP_K_DENSE = 30
 RRF_K = 60
-TOP_K_FINAL = 4
+# 2 fuentes para no inflar el prefill en CPU de 4 núcleos (cada fuente extra
+# son ~500 tokens ≈ 8-10 s de latencia); la fusión RRF ya ordenó por relevancia
+TOP_K_FINAL = int(os.getenv("POSTOP_TOP_K", "2"))
 USE_RERANKER = os.getenv("POSTOP_RERANKER", "0") == "1"
 
 # --- Servidor web ---
