@@ -29,9 +29,10 @@ class Embedder:
         for i, e in enumerate(encs):
             ids[i, : len(e.ids)] = e.ids
             mask[i, : len(e.ids)] = e.attention_mask
-        out = self.session.run(
-            None, {"input_ids": ids, "attention_mask": mask}
-        )[0]  # (B, T, 384) last_hidden_state
+        feed = {"input_ids": ids, "attention_mask": mask}
+        if any(i.name == "token_type_ids" for i in self.session.get_inputs()):
+            feed["token_type_ids"] = np.zeros_like(ids)
+        out = self.session.run(None, feed)[0]  # (B, T, 384) last_hidden_state
         # mean pooling con máscara + normalización L2 (receta oficial e5)
         m = mask[:, :, None].astype(np.float32)
         emb = (out * m).sum(axis=1) / np.clip(m.sum(axis=1), 1e-9, None)
