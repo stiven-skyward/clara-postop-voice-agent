@@ -16,10 +16,20 @@ from websockets.asyncio.client import connect
 
 from app import config, tts
 
-FRASES = [
-    "El dolor está como en ocho y va subiendo, y anoche me midieron treinta y ocho nueve de fiebre.",
-    "Sí señora, y la herida me está soltando un liquidito amarillo que huele feo.",
-]
+import os
+
+CASOS = {
+    "rojo": [
+        "El dolor está como en ocho y va subiendo, y anoche me midieron treinta y ocho nueve de fiebre.",
+        "Sí señora, y la herida me está soltando un liquidito amarillo que huele feo.",
+    ],
+    "verde": [
+        "La verdad muy bien, el dolor está como en dos y no he tenido fiebre.",
+        "La herida se ve normal, sin enrojecimiento. Una pregunta, ¿cuándo me puedo bañar normal, sin cuidar la herida del agua?",
+        "Listo, muchas gracias por la información.",
+    ],
+}
+FRASES = CASOS[os.getenv("E2E_CASE", "rojo")]
 
 
 def patient_audio(text: str) -> np.ndarray:
