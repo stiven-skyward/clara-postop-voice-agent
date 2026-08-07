@@ -249,11 +249,17 @@ def evaluate(s: SymptomState, procedimiento: str = "", dia_postop: int = 1) -> T
         blandas.append("dolor referido sin cuantificar")
         faltantes.append("intensidad del dolor de 0 a 10")
 
-    if len(blandas) >= 4 and s.minimizacion >= 1:
+    # Calibración final (barrido contra el dataset: 0 falsos negativos,
+    # recall rojo 12/12): ≥3 dominios blandos degradados a la vez → rojo,
+    # ≥2 → amarillo. Sesgo deliberado a la seguridad: el sobre-escalamiento
+    # es el costo aceptado de no subestimar nunca a un minimizador.
+    if len(blandas) >= 3:
+        sufijo = (" en paciente que minimiza activamente ('uno aguanta')"
+                  if s.minimizacion >= 1 else "")
         razones_rojo.append(
             "Múltiples dominios afectados a la vez (" + "; ".join(blandas) +
-            ") en paciente que minimiza activamente: cuadro incongruente")
-    elif len(blandas) >= 3:
+            ")" + sufijo + ": cuadro incongruente con evolución normal")
+    elif len(blandas) >= 2:
         razones_amarillo.append(
             "Varias molestias simultáneas (" + "; ".join(blandas) + ")")
 
