@@ -19,7 +19,8 @@ import pandas as pd
 from app import config, llm
 from app.agent import prompts
 from app.agent.orchestrator import _worth_extracting
-from app.agent.triage import SymptomState, combine, evaluate, sanitize_extraction
+from app.agent.triage import (SymptomState, combine, evaluate,
+                              quick_red_scan, sanitize_extraction)
 
 N_VERDE = int(sys.argv[1]) if len(sys.argv) > 1 else 20
 CAPA = sys.argv[2] if len(sys.argv) > 2 else "capa1_limpia"
@@ -51,7 +52,10 @@ def main():
                    ].sort_values("turno_idx")
         state, nivel = SymptomState(), "verde"
         for _, t in turns.iterrows():
-            if not _worth_extracting(str(t.texto)):  # mismo gate que producción
+            # mismo pipeline que producción: el atajo léxico rojo escala directo
+            if quick_red_scan(str(t.texto)):
+                nivel = "rojo"
+            if not _worth_extracting(str(t.texto)):
                 continue
             try:
                 ext = llm.structured(

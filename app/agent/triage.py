@@ -51,9 +51,18 @@ _GROUNDING = {
 # Anclaje para campos enum: el valor solo se acepta si el texto contiene un
 # lexema del síntoma DEGRADADO (evita que "dormí regular pero bien" → alterado)
 _GROUNDING_ENUM = {
-    "apetito": r"apetito|hambre|desgano|ganas|no he comido|como poc|comer poc",
-    "sueno": r"no duermo|duermo poc|duermo mal|despiert|desvel|insomn|no (?:he )?podido dormir|casi no duermo|trasnoch|dormido mal",
+    "apetito": r"apetito|hambre|desgano|ganas|no he comido|como poc|comer poc|provoca|casi no com|no com[eo] (?:casi )?nada",
+    "sueno": r"no duermo|duermo poc|duermo mal|despiert|desvel|insomn|no (?:he )?podido dormir|casi no duermo|trasnoch|dormido mal|no logro dormir|pego el ojo|dando vueltas|no puedo dormir|no poder dormir|no me deja dormir|duermo casi nada",
 }
+
+# Marcadores de minimización ASERTIVA ("uno aguanta", "nada grave") — el
+# minimizador afirma que todo está bien; el ansioso PREGUNTA si es normal.
+# Distinguirlos evita que el detector de incongruencia escale a los ansiosos.
+_MINIMIZATION = re.compile(
+    r"uno aguanta|aguanta uno|yo aguanto|no se preocupe|nada grave|no es nada"
+    r"|ya se (?:me )?pasara|no es para tanto|no quiero molestar"
+    r"|creo que es normal|capaz es normal|es normal (?:de la|del|no mas|con)"
+    r"|uno ya sabe|no me preocupo|no estoy tan mal|tan mal no")
 
 
 def sanitize_extraction(ext: dict, user_text: str) -> dict:
@@ -68,6 +77,16 @@ def sanitize_extraction(ext: dict, user_text: str) -> dict:
     # el paciente habla del dolor pero no lo cuantifica → señal blanda de evasión
     if out.get("dolor_nrs") is None and re.search(r"dolor|duele|molest|adolori", tn):
         out["dolor_mencionado_sin_numero"] = True
+    if _MINIMIZATION.search(tn):
+        out["minimizacion"] = True
+    # anclaje inverso: secreción purulenta descrita con eufemismos ("liquidito
+    # amarillito") que el LLM a veces clasifica benigna — el regex la fuerza,
+    # respetando negaciones ("nada de pus")
+    m = re.search(r"(?:liquid\w*|secre\w*|supura\w*|sale|solt\w*|salien\w*)[^.]{0,25}(?:amarill\w*|verd\w*)"
+                  r"|pus|huele (?:feo|mal|maluco)|mal olor|olor feo", tn)
+    if m and not re.search(_NEGATION, tn[max(0, m.start() - 30):m.start()]):
+        if out.get("herida") not in ("abierta",):
+            out["herida"] = "secrecion_purulenta"
     return out
 
 
@@ -85,6 +104,7 @@ class SymptomState:
     apetito: str | None = None
     sueno: str | None = None
     dolor_mencionado_sin_numero: bool = False
+    minimizacion: int = 0   # nº de turnos con minimización asertiva
     otros: list[str] = field(default_factory=list)
 
     def merge(self, ext: dict) -> None:
@@ -106,6 +126,8 @@ class SymptomState:
                     if v in order and order.index(v) < order.index(self.herida):
                         continue
                 setattr(self, k, v)
+        if ext.get("minimizacion"):
+            self.minimizacion += 1
         if ext.get("dolor_mencionado_sin_numero"):
             self.dolor_mencionado_sin_numero = True
         if ext.get("dolor_nrs") is not None:
@@ -122,6 +144,7 @@ class SymptomState:
             "disnea": self.disnea, "vomito_persistente": self.vomito_persistente,
             "apetito": self.apetito, "sueno": self.sueno,
             "dolor_mencionado_sin_numero": self.dolor_mencionado_sin_numero,
+            "minimizacion": self.minimizacion,
             "otros": self.otros,
         }
 
@@ -214,7 +237,9 @@ def evaluate(s: SymptomState, procedimiento: str = "", dia_postop: int = 1) -> T
     blandas: list[str] = []
     if s.herida in ("enrojecida_leve", "enrojecida", "secrecion_clara"):
         blandas.append("herida alterada (aunque la describe leve)")
-    if s.fiebre_subjetiva or (s.fiebre_c is not None and 37.8 <= s.fiebre_c < 38.0):
+    # el termómetro manda: sensación febril solo cuenta si NO hay medición normal
+    if (s.fiebre_subjetiva and s.fiebre_c is None) or \
+            (s.fiebre_c is not None and 37.8 <= s.fiebre_c < 38.0):
         blandas.append("sensación febril o febrícula")
     if s.apetito in ("reducido", "nulo"):
         blandas.append("apetito reducido")
@@ -224,10 +249,10 @@ def evaluate(s: SymptomState, procedimiento: str = "", dia_postop: int = 1) -> T
         blandas.append("dolor referido sin cuantificar")
         faltantes.append("intensidad del dolor de 0 a 10")
 
-    if len(blandas) >= 4:
+    if len(blandas) >= 4 and s.minimizacion >= 1:
         razones_rojo.append(
             "Múltiples dominios afectados a la vez (" + "; ".join(blandas) +
-            "): cuadro incongruente con la minimización del paciente")
+            ") en paciente que minimiza activamente: cuadro incongruente")
     elif len(blandas) >= 3:
         razones_amarillo.append(
             "Varias molestias simultáneas (" + "; ".join(blandas) + ")")

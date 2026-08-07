@@ -51,6 +51,7 @@ POSTOP_DATASET_DIR=/ruta/a/dataset .venv/bin/python scripts/ingest_corpus.py
 |---|---|
 | `POSTOP_PROFILE=principal` (defecto) | whisper small + Kokoro (~7 GB totales) |
 | `POSTOP_PROFILE=ligero` | whisper base + Piper (~5.5 GB totales, menor latencia) |
+| `POSTOP_LLM_THREADS` / `POSTOP_STT_THREADS` | Hilos de CPU (defecto **4**: el equipo de despliegue objetivo tiene 4 núcleos; súbelos si tu CPU tiene más) |
 
 ## Arquitectura
 
