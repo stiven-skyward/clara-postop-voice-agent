@@ -33,9 +33,12 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-  A[Transcripción del turno] --> B["Extracción estructurada a JSON<br/>(SCHEMA_EXTRACCION, GBNF: inválido imposible)"]
-  B --> C["Merge al estado de la llamada<br/>(SymptomState.merge — el cuadro solo se completa)"]
-  C --> D{"Motor de reglas deterministas<br/>(triage.evaluate)"}
+  A[Transcripción del turno] --> QR{"Atajo léxico rojo<br/>(quick_red_scan, con guardia de negación)"}
+  QR -->|"pus / mal olor / líquido amarillento<br/>herida abierta / sangrado abundante…"| R
+  QR -->|sin señal instantánea| B["Extracción estructurada a JSON<br/>(SCHEMA_EXTRACCION, GBNF: inválido imposible)"]
+  B --> SAN["Anclaje léxico determinista<br/>(sanitize_extraction): un síntoma solo se acepta<br/>si el texto lo respalda; secreción amarillenta<br/>= purulenta aunque el paciente la minimice"]
+  SAN --> C["Merge al estado de la llamada<br/>(SymptomState.merge — el cuadro solo se completa)"]
+  C --> D{"Motor de reglas deterministas<br/>(triage.evaluate)<br/>+ detector de incongruencia: ≥3 dominios<br/>blandos → amarillo; ≥4 + minimización<br/>asertiva ('uno aguanta') → rojo"}
   D -->|"fiebre ≥38.5 · dolor ≥8 · secreción purulenta<br/>herida abierta · sangrado · disnea · red flags texto"| R[ROJO]
   D -->|"fiebre 38-38.4 · dolor 5-7 · enrojecimiento<br/>síntomas a vigilar"| Y[AMARILLO]
   D -->|sin signos de alarma| G[VERDE]
