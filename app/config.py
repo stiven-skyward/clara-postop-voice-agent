@@ -24,12 +24,14 @@ LLM_HOST = os.getenv("POSTOP_LLM_HOST", "127.0.0.1")
 LLM_PORT = int(os.getenv("POSTOP_LLM_PORT", "8081"))
 LLM_URL = f"http://{LLM_HOST}:{LLM_PORT}"
 LLM_CTX = int(os.getenv("POSTOP_LLM_CTX", "4096"))
-LLM_THREADS = int(os.getenv("POSTOP_LLM_THREADS", str(max(2, (os.cpu_count() or 4) - 2))))
+# 4 hilos fijos: el equipo de despliegue objetivo tiene 4 núcleos. Las métricas
+# se miden con este límite aunque la máquina de desarrollo tenga más.
+LLM_THREADS = int(os.getenv("POSTOP_LLM_THREADS", "4"))
 LLAMA_SERVER_BIN = MODELS_DIR / "llama-b10313" / "llama-server"
 
 # --- STT (whisper.cpp vía pywhispercpp) ---
 STT_MODEL = MODELS_DIR / ("ggml-small-q5_1.bin" if PROFILE == "principal" else "ggml-base-q5_1.bin")
-STT_THREADS = int(os.getenv("POSTOP_STT_THREADS", "6"))
+STT_THREADS = int(os.getenv("POSTOP_STT_THREADS", "4"))
 # Léxico que orienta a Whisper hacia el dominio (initial_prompt)
 STT_PROMPT = (
     "Llamada de seguimiento postoperatorio en Colombia. Apendicectomía, colecistectomía, "

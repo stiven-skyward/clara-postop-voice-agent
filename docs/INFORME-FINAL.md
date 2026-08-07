@@ -62,7 +62,21 @@ y la explicabilidad clínica de las reglas es superior).
   febril sin termómetro ya no sube el nivel: genera una *indagación* ("¿puede
   medirse la temperatura?") antes de decidir — exactamente lo que la rúbrica pide
   ante la ambigüedad.
-- Resultado v2: ver métricas del README (matriz de confusión completa en
+- **v2 destapó el reto real del dataset:** aparecieron falsos negativos en casos
+  rojos de **pacientes minimizadores** — trayectoria real con dolor 9/10 relatada
+  como "un poquito molesto, uno aguanta", o secreción purulenta descrita como
+  "un liquidito amarillito, normal de la sanada".
+- **v3 (final):** tres defensas deterministas contra la minimización:
+  (a) la secreción amarilla/verde o con mal olor es purulenta **siempre**, por
+  más que el paciente la reste importancia; (b) **detector de incongruencia por
+  señales blandas**: la degradación *simultánea* de varios dominios (herida
+  rojita + sensación febril + apetito caído + sueño alterado + dolor evadido
+  sin cuantificar) es en sí una señal — ≥3 dominios → amarillo, ≥4 → rojo;
+  (c) guardia de **negación** en el atajo léxico rojo ("nada de pus" ya no
+  dispara). Además, el agente en vivo *indaga* ante señales evadidas (pide el
+  número de dolor, pide medir la temperatura), cosa que la evaluación sobre
+  diálogos congelados no puede capturar.
+- Resultado final: ver métricas del README (detalle por caso en
   `data/logs/eval_triage_capa1_limpia.json`).
 
 **Riesgos identificados:** (1) reglas incompletas ante síntomas no previstos —
