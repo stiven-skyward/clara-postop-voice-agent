@@ -21,7 +21,9 @@ SYSTEM_EXTRACCION = """Extrae los síntomas que el PACIENTE menciona en su últi
 - dolor_nrs: intensidad 0-10 si la dice o se infiere claramente ("casi nada"=1, "insoportable"=9).
 - fiebre_c: temperatura en °C solo si da un número.
 - fiebre_subjetiva: true SOLO si habla de fiebre/calentura/temperatura sin dar número. Si dice que NO tiene fiebre o que es leve y no le preocupa, NO lo marques.
-- herida: normal | enrojecida | secrecion_clara | secrecion_purulenta | abierta. "Un poquito de enrojecimiento", "se ve normal", "sana bien" = normal. enrojecida SOLO si el enrojecimiento es notorio, caliente o se extiende. Pus, mal olor o líquido amarillo/verde = secrecion_purulenta. Se abrió o se ven puntos sueltos = abierta.
+- herida: normal | enrojecida_leve | enrojecida | secrecion_clara | secrecion_purulenta | abierta. "Un poquito rojita/de enrojecimiento" = enrojecida_leve. Enrojecimiento notorio, caliente o que se extiende = enrojecida. OJO: pus, mal olor o líquido amarillo/amarillito/verde = secrecion_purulenta SIEMPRE, aunque el paciente diga que es poquito o normal. Se abrió o se ven puntos sueltos = abierta.
+- apetito: reducido | nulo (si come poco o nada; no lo emitas si come normal).
+- sueno: alterado (si duerme mal o se despierta varias veces; no lo emitas si duerme bien).
 - dolor_empeora: true SOLO si dice explícitamente que el dolor va aumentando o empeorando ("no mejora" o "no baja" NO es empeorar: omite el campo).
 - sangrado: true SOLO si refiere sangrado activo ahora (no un manchado leve ya resuelto).
 - disnea: true si le cuesta respirar.
@@ -42,8 +44,10 @@ SCHEMA_EXTRACCION = {
         "fiebre_c": {"type": "number"},
         "fiebre_subjetiva": {"type": "boolean"},
         "herida": {"type": "string",
-                   "enum": ["normal", "enrojecida", "secrecion_clara",
-                            "secrecion_purulenta", "abierta"]},
+                   "enum": ["normal", "enrojecida_leve", "enrojecida",
+                            "secrecion_clara", "secrecion_purulenta", "abierta"]},
+        "apetito": {"type": "string", "enum": ["reducido", "nulo"]},
+        "sueno": {"type": "string", "enum": ["alterado"]},
         "dolor_empeora": {"type": "boolean"},
         "sangrado": {"type": "boolean"},
         "disnea": {"type": "boolean"},

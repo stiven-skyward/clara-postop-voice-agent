@@ -46,6 +46,25 @@ triaje por LLM 70B en nube (descartado: dependencia de red; queda como verificad
 opcional), clasificador ML entrenado con el dataset (descartado: 160 casos son pocos
 y la explicabilidad clínica de las reglas es superior).
 
+**Calibración medida contra el dataset (evidencia de iteración):**
+
+- **v1 de las reglas:** 0 falsos negativos y recall rojo 12/12 sobre 57 casos
+  (12 rojos + 25 amarillos + 20 verdes, capa limpia)… pero **45 falsos positivos**:
+  ningún caso quedaba en verde. Dos causas: el LLM pequeño *infiere* síntomas no
+  dichos ("el dolor no baja" → `dolor_empeora`; "un poquito de enrojecimiento,
+  se ve normal" → `herida: enrojecida`), y las reglas contaban molestias normales
+  de recuperación (sueño irregular, mareo leve) como señales amarillas.
+- **v2 (calibrada):** (a) **anclaje léxico** de la extracción — una bandera booleana
+  solo se acepta si el texto del paciente contiene un lexema compatible
+  (`sanitize_extraction`), lo que neutraliza la sobre-inferencia del 3B de forma
+  determinista; (b) poda de keywords benignos; (c) febrícula 38.0-38.4 + herida
+  alterada leve refuerza el amarillo en vez de saltar a rojo; (d) la sensación
+  febril sin termómetro ya no sube el nivel: genera una *indagación* ("¿puede
+  medirse la temperatura?") antes de decidir — exactamente lo que la rúbrica pide
+  ante la ambigüedad.
+- Resultado v2: ver métricas del README (matriz de confusión completa en
+  `data/logs/eval_triage_capa1_limpia.json`).
+
 **Riesgos identificados:** (1) reglas incompletas ante síntomas no previstos —
 mitigado con listas de red flags textuales y con el merge de "otros" síntomas;
 (2) error de extracción — mitigado con esquema cerrado y umbral conservador;
