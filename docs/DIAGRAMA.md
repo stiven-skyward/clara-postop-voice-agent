@@ -43,7 +43,7 @@ flowchart LR
   end
 ```
 
-## Flujo de decisión del agente (por turno de paciente)
+### Flujo de decisión del agente (por turno de paciente)
 
 ```mermaid
 flowchart TD
