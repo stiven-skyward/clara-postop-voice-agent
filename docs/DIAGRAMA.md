@@ -3,7 +3,21 @@
 > Entregable 02. Cada elemento corresponde a código real del repositorio
 > (módulo indicado entre paréntesis).
 
-## Arquitectura de la solución
+## Versión en imagen (oficial)
+
+![Arquitectura de la solución](diagramas/arquitectura.png)
+
+![Flujo de decisión del agente por turno](diagramas/flujo-decision.png)
+
+Fuentes editables: [`diagramas/arquitectura.svg`](diagramas/arquitectura.svg) y
+[`diagramas/flujo-decision.svg`](diagramas/flujo-decision.svg). Cada imagen incluye
+su recuadro de convenciones con la función de cada componente y sus conexiones.
+
+---
+
+## Versión mermaid (referencia rápida en texto)
+
+### Arquitectura de la solución
 
 ```mermaid
 flowchart LR

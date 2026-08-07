@@ -1,0 +1,309 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1640" height="2340" viewBox="0 0 1640 2340" font-family="DejaVu Sans, Verdana, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="arr-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#dc2626"/>
+    </marker>
+    <marker id="arr-y" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#d97706"/>
+    </marker>
+    <marker id="arr-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#16a34a"/>
+    </marker>
+    <g id="i-stt" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 5h16v11H9l-4 3.5V16H4z"/><path d="M7.5 9h9M7.5 12h6"/>
+    </g>
+    <g id="i-json" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8.5 4C6.5 4 6.5 6 6.5 7.5S6.5 11 4.5 12c2 1 2 3 2 4.5S6.5 20 8.5 20M15.5 4c2 0 2 2 2 3.5s0 3.5 2 4.5c-2 1-2 3-2 4.5s0 3.5-2 3.5"/>
+    </g>
+    <g id="i-shield" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3.5l7 2.5v5c0 4.5-3 8-7 9.5-4-1.5-7-5-7-9.5v-5z"/><path d="M9 11.5l2 2 4-4.5"/>
+    </g>
+    <g id="i-layers" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3.5L21 8l-9 4.5L3 8z"/><path d="M4.5 12.5L12 16l7.5-3.5M6 16.5L12 19.5l6-3"/>
+    </g>
+    <g id="i-scales" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 4v16M8.5 20.5h7M12 6.5L6 8m6-1.5L18 8"/>
+      <path d="M3.5 13.5L6 8l2.5 5.5a2.6 2.6 0 0 1-5 0zM15.5 13.5L18 8l2.5 5.5a2.6 2.6 0 0 1-5 0z"/>
+    </g>
+    <g id="i-bell" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 16.5v-6a6 6 0 0 1 12 0v6l1.8 2.5H4.2z"/><path d="M10 21.5a2.2 2.2 0 0 0 4 0"/>
+    </g>
+    <g id="i-search" fill="none" stroke-width="1.8" stroke-linecap="round">
+      <circle cx="10.5" cy="10.5" r="5.5"/><path d="M15 15l5 5"/>
+    </g>
+    <g id="i-book" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15.5H6.5A2.5 2.5 0 0 0 4 21z"/><path d="M4 18.5A2.5 2.5 0 0 1 6.5 16H20M8 7.5h8"/>
+    </g>
+    <g id="i-chat" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 5h16v11H9l-4 3.5V16H4z"/><path d="M8 9.5h8M8 12.5h5"/>
+    </g>
+    <g id="i-hand" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/>
+    </g>
+    <g id="i-list" fill="none" stroke-width="1.8" stroke-linecap="round">
+      <path d="M8 6.5h12M8 12h12M8 17.5h12"/><circle cx="4.3" cy="6.5" r="1"/><circle cx="4.3" cy="12" r="1"/><circle cx="4.3" cy="17.5" r="1"/>
+    </g>
+    <g id="i-clip" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="5" y="4.5" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M8.5 9.5h7M8.5 13h7M8.5 16.5h4.5"/>
+    </g>
+    <g id="i-zap" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 3L5.5 13.5H11L10 21l7.5-10.5H12z"/>
+    </g>
+  </defs>
+
+  <rect width="1640" height="2340" fill="#ffffff"/>
+  <text x="820" y="52" text-anchor="middle" font-size="24" font-weight="bold" fill="#1e293b">Flujo de decisión del agente — por cada turno del paciente</text>
+
+  <!-- ============ ESPINA CENTRAL ============ -->
+  <rect x="660" y="130" width="300" height="80" rx="10" fill="#f1f5f9" stroke="#334155" stroke-width="1.8"/>
+  <use href="#i-stt" transform="translate(672,142) scale(1.2)" stroke="#334155"/>
+  <text x="828" y="163" text-anchor="middle" font-size="14" font-weight="bold" fill="#0f172a">Turno del paciente</text>
+  <text x="810" y="188" text-anchor="middle" font-size="12" fill="#334155">texto transcrito por el STT</text>
+
+  <!-- D1 atajo rojo -->
+  <polygon points="810,250 960,330 810,410 660,330" fill="#fff7ed" stroke="#ea580c" stroke-width="1.8"/>
+  <use href="#i-zap" transform="translate(797,268) scale(1.1)" stroke="#ea580c"/>
+  <text x="810" y="322" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#9a3412">¿Señal roja léxica?</text>
+  <text x="810" y="342" text-anchor="middle" font-size="11.5" fill="#334155">quick_red_scan — instantáneo,</text>
+  <text x="810" y="358" text-anchor="middle" font-size="11.5" fill="#334155">sin LLM, ignora frases negadas</text>
+  <text x="810" y="374" text-anchor="middle" font-size="11" fill="#64748b">(«nada de pus» no dispara)</text>
+
+  <rect x="660" y="470" width="300" height="90" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.6"/>
+  <use href="#i-json" transform="translate(672,482) scale(1.2)" stroke="#7c3aed"/>
+  <text x="832" y="500" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#5b21b6">Extracción de síntomas a JSON</text>
+  <text x="810" y="522" text-anchor="middle" font-size="12" fill="#334155">LLM + esquema forzado (GBNF):</text>
+  <text x="810" y="539" text-anchor="middle" font-size="12" fill="#334155">JSON inválido imposible · solo si el turno</text>
+  <text x="810" y="554" text-anchor="middle" font-size="11" fill="#64748b">tiene contenido clínico (_worth_extracting)</text>
+
+  <rect x="660" y="610" width="300" height="90" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.6"/>
+  <use href="#i-shield" transform="translate(672,622) scale(1.2)" stroke="#16a34a"/>
+  <text x="832" y="640" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#166534">Anclaje léxico determinista</text>
+  <text x="810" y="662" text-anchor="middle" font-size="12" fill="#334155">sanitize_extraction: un síntoma solo se acepta</text>
+  <text x="810" y="679" text-anchor="middle" font-size="12" fill="#334155">si el texto lo respalda; secreción amarillenta</text>
+  <text x="810" y="694" text-anchor="middle" font-size="11" fill="#64748b">= purulenta aunque el paciente la minimice</text>
+
+  <rect x="660" y="750" width="300" height="80" rx="10" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+  <use href="#i-layers" transform="translate(672,762) scale(1.2)" stroke="#334155"/>
+  <text x="835" y="780" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#0f172a">Merge al estado de la llamada</text>
+  <text x="810" y="802" text-anchor="middle" font-size="12" fill="#334155">SymptomState: el cuadro solo se</text>
+  <text x="810" y="818" text-anchor="middle" font-size="12" fill="#334155">completa o se agrava, nunca se borra</text>
+
+  <!-- D2 reglas -->
+  <polygon points="810,850 975,930 810,1010 645,930" fill="#f8fafc" stroke="#334155" stroke-width="1.8"/>
+  <use href="#i-scales" transform="translate(795,868) scale(1.1)" stroke="#334155"/>
+  <text x="810" y="922" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#0f172a">Reglas deterministas de triaje</text>
+  <text x="810" y="942" text-anchor="middle" font-size="11.5" fill="#334155">evaluate() — auditables, el nivel de la</text>
+  <text x="810" y="958" text-anchor="middle" font-size="11.5" fill="#334155">llamada solo puede subir · incluye detector</text>
+  <text x="810" y="974" text-anchor="middle" font-size="11.5" fill="#334155">de incongruencia (≥3 dominios blandos)</text>
+
+  <!-- junction verde + merge amarillo -->
+  <circle cx="810" cy="1140" r="5" fill="#475569"/>
+
+  <!-- D3 pregunta -->
+  <polygon points="810,1270 950,1330 810,1390 670,1330" fill="#f0f9ff" stroke="#0284c7" stroke-width="1.8"/>
+  <text x="810" y="1322" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#075985">¿El paciente</text>
+  <text x="810" y="1342" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#075985">preguntó algo?</text>
+  <text x="810" y="1362" text-anchor="middle" font-size="11" fill="#64748b">campo «pregunta» de la extracción</text>
+
+  <rect x="660" y="1470" width="300" height="80" rx="10" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+  <use href="#i-list" transform="translate(672,1482) scale(1.2)" stroke="#334155"/>
+  <text x="833" y="1500" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#0f172a">Siguiente dominio del guion</text>
+  <text x="810" y="1522" text-anchor="middle" font-size="12" fill="#334155">dolor → fiebre → herida → movilidad →</text>
+  <text x="810" y="1538" text-anchor="middle" font-size="12" fill="#334155">apetito/sueño (sin repetir lo ya contado)</text>
+
+  <rect x="660" y="1610" width="300" height="100" rx="10" fill="#f1f5f9" stroke="#334155" stroke-width="1.8"/>
+  <use href="#i-clip" transform="translate(672,1622) scale(1.2)" stroke="#334155"/>
+  <text x="830" y="1640" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#0f172a">Cierre de la llamada</text>
+  <text x="810" y="1662" text-anchor="middle" font-size="12" fill="#334155">próximos pasos + resumen estructurado</text>
+  <text x="810" y="1679" text-anchor="middle" font-size="12" fill="#334155">persistente: paciente, procedimiento, síntomas,</text>
+  <text x="810" y="1696" text-anchor="middle" font-size="12" fill="#334155">decisión, referencias [n], alerta si la hubo</text>
+
+  <!-- ============ RAMA ROJA (derecha) ============ -->
+  <rect x="1150" y="830" width="380" height="150" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+  <use href="#i-bell" transform="translate(1162,842) scale(1.25)" stroke="#dc2626"/>
+  <text x="1352" y="862" text-anchor="middle" font-size="14.5" font-weight="bold" fill="#991b1b">ESCALAMIENTO ROJO</text>
+  <text x="1340" y="888" text-anchor="middle" font-size="12" fill="#334155">1. Alerta persistente en alertas.jsonl: paciente,</text>
+  <text x="1340" y="905" text-anchor="middle" font-size="12" fill="#334155">síntomas, razones, transcripción disparadora</text>
+  <text x="1340" y="922" text-anchor="middle" font-size="12" fill="#334155">2. Protocolo al paciente (frase pre-sintetizada,</text>
+  <text x="1340" y="939" text-anchor="middle" font-size="12" fill="#334155">suena de inmediato) + urgencias si empeora</text>
+  <text x="1340" y="961" text-anchor="middle" font-size="11" fill="#64748b">el nivel rojo ya no baja durante la llamada</text>
+
+  <!-- ============ RAMA AMARILLA (izquierda) ============ -->
+  <rect x="160" y="860" width="380" height="140" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+  <use href="#i-chat" transform="translate(172,872) scale(1.25)" stroke="#d97706"/>
+  <text x="362" y="892" text-anchor="middle" font-size="14" font-weight="bold" fill="#92400e">AMARILLO — vigilancia</text>
+  <text x="350" y="918" text-anchor="middle" font-size="12" fill="#334155">comunicar con calma, sin alarmar ni restar</text>
+  <text x="350" y="935" text-anchor="middle" font-size="12" fill="#334155">importancia · aviso a enfermería hoy mismo ·</text>
+  <text x="350" y="952" text-anchor="middle" font-size="12" fill="#334155">ante ambigüedad INDAGA antes de decidir</text>
+  <text x="350" y="974" text-anchor="middle" font-size="11" fill="#64748b">(«¿puede medirse la temperatura?», «¿de 0 a 10?»)</text>
+
+  <!-- ============ RAMA RAG (abajo-izquierda) ============ -->
+  <rect x="160" y="1420" width="380" height="90" rx="10" fill="#f0f9ff" stroke="#0284c7" stroke-width="1.6"/>
+  <use href="#i-search" transform="translate(172,1432) scale(1.2)" stroke="#0284c7"/>
+  <text x="365" y="1450" text-anchor="middle" font-size="13.5" font-weight="bold" fill="#075985">RAG híbrido</text>
+  <text x="350" y="1472" text-anchor="middle" font-size="12" fill="#334155">BM25S + denso + RRF con filtro del escenario</text>
+  <text x="350" y="1489" text-anchor="middle" font-size="12" fill="#334155">quirúrgico del paciente → top-2 fuentes [n]</text>
+
+  <polygon points="350,1550 475,1590 350,1630 225,1590" fill="#f0f9ff" stroke="#0284c7" stroke-width="1.8"/>
+  <text x="350" y="1586" text-anchor="middle" font-size="13" font-weight="bold" fill="#075985">¿Hay fuentes</text>
+  <text x="350" y="1604" text-anchor="middle" font-size="13" font-weight="bold" fill="#075985">pertinentes?</text>
+
+  <rect x="60" y="1700" width="280" height="110" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.6"/>
+  <use href="#i-book" transform="translate(72,1712) scale(1.2)" stroke="#16a34a"/>
+  <text x="216" y="1730" text-anchor="middle" font-size="13" font-weight="bold" fill="#166534">Responder citando [n]</text>
+  <text x="200" y="1752" text-anchor="middle" font-size="12" fill="#334155">respuesta corta fundamentada solo</text>
+  <text x="200" y="1769" text-anchor="middle" font-size="12" fill="#334155">en las fuentes; la cita queda</text>
+  <text x="200" y="1786" text-anchor="middle" font-size="12" fill="#334155">registrada en el resumen (trazabilidad)</text>
+
+  <rect x="400" y="1700" width="280" height="110" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.6"/>
+  <use href="#i-hand" transform="translate(412,1712) scale(1.2)" stroke="#ea580c"/>
+  <text x="556" y="1730" text-anchor="middle" font-size="13" font-weight="bold" fill="#9a3412">Límite honesto</text>
+  <text x="540" y="1752" text-anchor="middle" font-size="12" fill="#334155">«no tengo esa información;</text>
+  <text x="540" y="1769" text-anchor="middle" font-size="12" fill="#334155">la remito al equipo de salud» —</text>
+  <text x="540" y="1786" text-anchor="middle" font-size="12" fill="#334155">nunca improvisa una respuesta clínica</text>
+
+  <!-- ============ CONECTORES ============ -->
+  <g stroke="#475569" stroke-width="2" fill="none">
+    <path d="M810 210 V246" marker-end="url(#arr)"/>
+    <path d="M810 410 V466" marker-end="url(#arr)"/>
+    <path d="M810 560 V606" marker-end="url(#arr)"/>
+    <path d="M810 700 V746" marker-end="url(#arr)"/>
+    <path d="M810 830 V846" marker-end="url(#arr)"/>
+  </g>
+  <!-- D1 sí → R1 -->
+  <path d="M960 330 H1340 V826" fill="none" stroke="#dc2626" stroke-width="2.4" marker-end="url(#arr-r)"/>
+  <!-- D2 rojo → R1 -->
+  <path d="M975 930 H1146" fill="none" stroke="#dc2626" stroke-width="2.4" marker-end="url(#arr-r)"/>
+  <!-- R1 → cierre -->
+  <path d="M1340 980 V1655 H964" fill="none" stroke="#dc2626" stroke-width="2.4" marker-end="url(#arr-r)"/>
+  <!-- D2 amarillo → Y1 -->
+  <path d="M645 930 H544" fill="none" stroke="#d97706" stroke-width="2.4" marker-end="url(#arr-y)"/>
+  <!-- Y1 → se reincorpora a la espina -->
+  <path d="M350 1000 V1140 H803" fill="none" stroke="#d97706" stroke-width="2.4" marker-end="url(#arr-y)"/>
+  <!-- D2 verde ↓ (pasa por la unión) -->
+  <path d="M810 1010 V1266" fill="none" stroke="#16a34a" stroke-width="2.4" marker-end="url(#arr-g)"/>
+  <!-- D3 sí → RAG -->
+  <path d="M670 1330 H350 V1416" fill="none" stroke="#0284c7" stroke-width="2" marker-end="url(#arr)"/>
+  <!-- RAG → ¿hay fuentes? -->
+  <path d="M350 1510 V1546" fill="none" stroke="#0284c7" stroke-width="2" marker-end="url(#arr)"/>
+  <!-- fuentes sí → responder -->
+  <path d="M225 1590 H140 V1696" fill="none" stroke="#16a34a" stroke-width="2" marker-end="url(#arr-g)"/>
+  <!-- fuentes no → límite honesto -->
+  <path d="M350 1630 V1660 H540 V1696" fill="none" stroke="#ea580c" stroke-width="2" marker-end="url(#arr)"/>
+  <!-- D3 no → guion -->
+  <path d="M810 1390 V1466" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+  <!-- guion → cierre -->
+  <path d="M810 1550 V1606" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- Etiquetas de ramas -->
+  <g font-size="12.5" font-weight="bold">
+    <text x="985" y="300" fill="#dc2626">SÍ — pus, mal olor, líquido amarillento,</text>
+    <text x="985" y="280" fill="#dc2626" font-size="13.5">rojo instantáneo (&lt;1 s de respuesta)</text>
+    <text x="822" y="446" fill="#475569">no</text>
+    <text x="1000" y="918" fill="#dc2626">ROJO</text>
+    <text x="586" y="918" fill="#d97706">AMARILLO</text>
+    <text x="822" y="1060" fill="#16a34a">VERDE</text>
+    <text x="368" y="1080" fill="#d97706">tras comunicar, el turno</text>
+    <text x="368" y="1098" fill="#d97706">sigue su curso normal</text>
+    <text x="600" y="1318" fill="#0284c7">sí</text>
+    <text x="822" y="1436" fill="#475569">no</text>
+    <text x="150" y="1578" fill="#16a34a">sí</text>
+    <text x="362" y="1652" fill="#ea580c">no</text>
+    <text x="822" y="1584" fill="#475569">guion completo →</text>
+    <text x="822" y="1600" fill="#475569">despedida</text>
+    <text x="1352" y="1636" fill="#dc2626">cierre con protocolo de alerta</text>
+  </g>
+  <g font-size="11.5" fill="#dc2626">
+    <text x="985" y="318">herida abierta, sangrado abundante…</text>
+    <text x="985" y="950">fiebre ≥38.5 · dolor ≥8</text>
+    <text x="985" y="966">secreción purulenta · disnea</text>
+    <text x="985" y="982">≥3 dominios blandos</text>
+  </g>
+
+  <!-- ============ CONVENCIONES ============ -->
+  <rect x="60" y="1880" width="1520" height="420" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.4"/>
+  <text x="80" y="1915" font-size="17" font-weight="bold" fill="#1e293b">Convenciones — qué hace cada paso y cómo se conecta</text>
+
+  <g font-size="12" fill="#334155">
+    <!-- col 1 -->
+    <use href="#i-zap" transform="translate(82,1938) scale(1.05)" stroke="#ea580c"/>
+    <text x="114" y="1954" font-weight="bold" fill="#0f172a">Atajo léxico rojo (quick_red_scan)</text>
+    <text x="114" y="1971">Barrido instantáneo del texto crudo, sin LLM, con guardia de</text>
+    <text x="114" y="1987">negación. Si detecta señal inequívoca → salta directo al</text>
+    <text x="114" y="2003">escalamiento: el paciente oye la respuesta en &lt;1 s.</text>
+
+    <use href="#i-json" transform="translate(82,2026) scale(1.05)" stroke="#7c3aed"/>
+    <text x="114" y="2042" font-weight="bold" fill="#0f172a">Extracción JSON (única tarea «creativa» del LLM aquí)</text>
+    <text x="114" y="2059">Convierte habla libre y regionalismos en campos clínicos</text>
+    <text x="114" y="2075">(«liquidito amarillo que huele feo» → secrecion_purulenta).</text>
+    <text x="114" y="2091">Alimenta el anclaje y luego el merge del estado.</text>
+
+    <use href="#i-shield" transform="translate(82,2114) scale(1.05)" stroke="#16a34a"/>
+    <text x="114" y="2130" font-weight="bold" fill="#0f172a">Anclaje léxico (sanitize_extraction)</text>
+    <text x="114" y="2147">Filtro determinista anti-alucinación: descarta síntomas que el</text>
+    <text x="114" y="2163">texto no respalda y fuerza los que el paciente minimiza.</text>
+    <text x="114" y="2179">Conecta la salida del LLM con el estado de la llamada.</text>
+
+    <use href="#i-layers" transform="translate(82,2202) scale(1.05)" stroke="#334155"/>
+    <text x="114" y="2218" font-weight="bold" fill="#0f172a">Estado de la llamada (SymptomState)</text>
+    <text x="114" y="2235">Acumula dolor, fiebre, herida, apetito, sueño y marcadores de</text>
+    <text x="114" y="2251">minimización turno a turno; es la entrada de las reglas.</text>
+
+    <!-- col 2 -->
+    <use href="#i-scales" transform="translate(582,1938) scale(1.05)" stroke="#334155"/>
+    <text x="614" y="1954" font-weight="bold" fill="#0f172a">Reglas de triaje (evaluate)</text>
+    <text x="614" y="1971">Deciden verde/amarillo/rojo con umbrales clínicos auditables</text>
+    <text x="614" y="1987">y el detector de incongruencia (≥3 dominios blandos → rojo).</text>
+    <text x="614" y="2003">El LLM no participa: calibradas a 0 falsos negativos y recall</text>
+    <text x="614" y="2019">rojo 12/12 sobre los 57 casos del dataset del reto.</text>
+
+    <use href="#i-bell" transform="translate(582,2042) scale(1.05)" stroke="#dc2626"/>
+    <text x="614" y="2058" font-weight="bold" fill="#0f172a">Escalamiento rojo</text>
+    <text x="614" y="2075">Registra la alerta persistente (alertas.jsonl) y comunica el</text>
+    <text x="614" y="2091">protocolo con calma. Recibe flechas del atajo léxico y de las</text>
+    <text x="614" y="2107">reglas; desemboca siempre en el cierre con resumen.</text>
+
+    <use href="#i-chat" transform="translate(582,2130) scale(1.05)" stroke="#d97706"/>
+    <text x="614" y="2146" font-weight="bold" fill="#0f172a">Rama amarilla — vigilancia e indagación</text>
+    <text x="614" y="2163">Comunica sin alarmar, agenda enfermería el mismo día y,</text>
+    <text x="614" y="2179">si hay ambigüedad (fiebre sin medir, dolor sin número),</text>
+    <text x="614" y="2195">pregunta antes de decidir. Después el turno sigue su curso.</text>
+
+    <use href="#i-list" transform="translate(582,2218) scale(1.05)" stroke="#334155"/>
+    <text x="614" y="2234" font-weight="bold" fill="#0f172a">Guion clínico y cierre</text>
+    <text x="614" y="2251">Recorre los 5 dominios sin repetir lo ya contado; al completarse,</text>
+    <text x="614" y="2267">despide y persiste el resumen estructurado de la llamada.</text>
+
+    <!-- col 3 -->
+    <use href="#i-search" transform="translate(1082,1938) scale(1.05)" stroke="#0284c7"/>
+    <text x="1114" y="1954" font-weight="bold" fill="#0f172a">Rama azul — dudas del paciente (RAG)</text>
+    <text x="1114" y="1971">Solo se activa si la extracción detectó una pregunta. Busca en</text>
+    <text x="1114" y="1987">el conocimiento vivo con filtro del escenario quirúrgico y</text>
+    <text x="1114" y="2003">responde citando [n], o declara el límite con honestidad.</text>
+
+    <text x="1114" y="2040" font-weight="bold" fill="#0f172a">Formas</text>
+    <rect x="1114" y="2052" width="30" height="18" rx="4" fill="#ffffff" stroke="#64748b" stroke-width="1.6"/>
+    <text x="1156" y="2066">proceso</text>
+    <polygon points="1129,2082 1152,2094 1129,2106 1106,2094" fill="#ffffff" stroke="#64748b" stroke-width="1.6"/>
+    <text x="1156" y="2099">decisión (rombo)</text>
+    <circle cx="1129" cy="2124" r="5" fill="#475569"/>
+    <text x="1156" y="2129">unión de flujos (el amarillo se reincorpora)</text>
+
+    <text x="1114" y="2166" font-weight="bold" fill="#0f172a">Colores de flecha</text>
+    <g stroke-width="2.4" fill="none">
+      <path d="M1114 2182 h40" stroke="#dc2626" marker-end="url(#arr-r)"/>
+      <path d="M1114 2208 h40" stroke="#d97706" marker-end="url(#arr-y)"/>
+      <path d="M1114 2234 h40" stroke="#16a34a" marker-end="url(#arr-g)"/>
+      <path d="M1114 2260 h40" stroke="#475569" stroke-width="2" marker-end="url(#arr)"/>
+    </g>
+    <text x="1168" y="2187">camino rojo (escalar ya; nunca se degrada)</text>
+    <text x="1168" y="2213">camino amarillo (vigilar + indagar)</text>
+    <text x="1168" y="2239">camino verde (evolución esperada / respuesta con cita)</text>
+    <text x="1168" y="2265">flujo neutro del turno</text>
+  </g>
+
+  <text x="80" y="2290" font-size="11.5" font-style="italic" fill="#64748b">Invariantes de seguridad: el nivel solo sube (combine) · el falso negativo pesa más que el falso positivo · toda respuesta clínica lleva cita [n] o declaración explícita de límite.</text>
+</svg>
