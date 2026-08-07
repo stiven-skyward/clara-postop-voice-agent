@@ -106,6 +106,7 @@ class Searcher:
         chunks = store.get_chunks([cid for cid, _ in top])
         sources: list[Source] = []
         seen_parents: set[int] = set()
+        seen_text: set[str] = set()  # dedupe de docs casi idénticos del corpus
         for cid, score in top:
             ch = chunks.get(cid)
             if ch is None or ch.parent_id in seen_parents:
@@ -115,6 +116,10 @@ class Searcher:
             if parent is None:
                 continue
             doc_id, seccion, p0, p1, texto = parent
+            key = re.sub(r"\s+", "", texto)[:300].lower()
+            if key in seen_text:
+                continue
+            seen_text.add(key)
             sources.append(Source(
                 n=len(sources) + 1, doc_id=doc_id, titulo=store.doc_title(doc_id),
                 seccion=seccion, pagina_ini=p0, pagina_fin=p1, texto=texto,

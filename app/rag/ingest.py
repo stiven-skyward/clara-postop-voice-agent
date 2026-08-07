@@ -116,12 +116,30 @@ def _extract_sections_pdf(path: Path) -> tuple[list[dict], int, str]:
     return sections, n_pages, sample
 
 
+_TOC_NAMES = {"contenido", "contenidos", "tabla de contenido", "indice", "índice",
+              "index", "table of contents", "contents", "references", "referencias",
+              "bibliografia", "bibliografía"}
+
+
+def _is_toc_like(name: str, text: str) -> bool:
+    """Detecta tablas de contenido/bibliografías: puro ruido para el RAG."""
+    if name.strip().lower().rstrip(".") in _TOC_NAMES:
+        return True
+    lines = [l for l in text.splitlines() if l.strip()]
+    if len(lines) >= 8:
+        dotted = sum(1 for l in lines if re.search(r"\.{4,}\s*\d+\s*$", l))
+        if dotted / len(lines) > 0.3:
+            return True
+    return False
+
+
 def _split_parent(sections: list[dict], count_tokens) -> list[dict]:
     """Limita padres a PARENT_MAX_TOKENS partiendo por párrafos si hace falta."""
     out = []
     for sec in sections:
-        text = re.sub(r"\n{3,}", "\n\n", sec["texto"]).strip()
-        if not text:
+        text = re.sub(r"\.{4,}", " ", sec["texto"])  # puntos de relleno de índices
+        text = re.sub(r"\n{3,}", "\n\n", text).strip()
+        if not text or _is_toc_like(sec["seccion"], sec["texto"]):
             continue
         if count_tokens(text) <= config.PARENT_MAX_TOKENS:
             out.append({**sec, "texto": text})

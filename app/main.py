@@ -144,10 +144,13 @@ async def ws_call(ws: WebSocket):
             msg = await out_q.get()
             if msg is None:
                 break
-            if isinstance(msg, (bytes, bytearray)):
-                await ws.send_bytes(msg)
-            else:
-                await ws.send_text(json.dumps(msg, ensure_ascii=False))
+            try:
+                if isinstance(msg, (bytes, bytearray)):
+                    await ws.send_bytes(msg)
+                else:
+                    await ws.send_text(json.dumps(msg, ensure_ascii=False))
+            except Exception:
+                break
 
     send_task = asyncio.create_task(sender())
 
@@ -162,6 +165,13 @@ async def ws_call(ws: WebSocket):
         send(bytes(pcm))
 
     def run_turn(audio: np.ndarray) -> None:
+        try:
+            _run_turn(audio)
+        except Exception as e:
+            send({"type": "error", "detail": str(e)})
+            send({"type": "turn_end"})
+
+    def _run_turn(audio: np.ndarray) -> None:
         assert state is not None
         tm = metrics.TurnMetrics(state.call_id, state.turno + 1)
         tm.mark("speech_end")
