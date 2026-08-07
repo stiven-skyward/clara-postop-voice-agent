@@ -1,0 +1,1358 @@
+[
+ {
+  "caso_id": "caso_tray_pac_42_00017_14",
+  "esperado": "rojo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 3,
+   "fiebre_c": 38,
+   "fiebre_subjetiva": true,
+   "herida": "secrecion_purulenta",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "cansancio",
+    "puntos de sutura",
+    "todo me da como asco",
+    "nervios"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00017_7",
+  "esperado": "rojo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 2,
+   "fiebre_c": 37,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 4,
+   "otros": [
+    "poquito",
+    "las ganas"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00019_14",
+  "esperado": "rojo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 6,
+   "fiebre_c": 39,
+   "fiebre_subjetiva": null,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": false,
+   "vomito_persistente": null,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "pesada",
+    "me muevo despacito",
+    "me pierden las cuentas",
+    "alrededor mija",
+    "pereza",
+    "asco",
+    "dolor",
+    "sudor",
+    "revolución del estómago"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00019_7",
+  "esperado": "rojo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 5,
+   "fiebre_c": 38.2,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "enrojecimiento en la herida",
+    "escalofrío",
+    "casi no puedo levantarme",
+    "fuerzas",
+    "apetito",
+    "dolor",
+    "malestar"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00026_14",
+  "esperado": "rojo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": null,
+   "fiebre_c": null,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 1,
+   "otros": [
+    "poquito rojita",
+    "nervios",
+    "dormir casi nada"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00026_7",
+  "esperado": "rojo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 5,
+   "fiebre_c": null,
+   "fiebre_subjetiva": false,
+   "herida": "secrecion_purulenta",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "líquido amarillo saliendo",
+    "no sé si desde el principio o apenas ayer",
+    "confusión",
+    "dificultad para conciliar el sueño",
+    "dificultad para mantener el sueño"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00027_14",
+  "esperado": "rojo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 6,
+   "fiebre_c": 38,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 4,
+   "otros": [
+    "cicatrización",
+    "normal de la cicatrización",
+    "incomodidad",
+    "normal",
+    "nada que preocupe"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00027_7",
+  "esperado": "rojo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 3,
+   "fiebre_c": 39,
+   "fiebre_subjetiva": null,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "fuerzas",
+    "poco",
+    "alrededor",
+    "roja",
+    "no sé si eso es normal o no",
+    "dolor",
+    "sudando"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00028_14",
+  "esperado": "rojo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 0,
+   "fiebre_c": 38.1,
+   "fiebre_subjetiva": false,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "nulo",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": []
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00028_7",
+  "esperado": "rojo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 5,
+   "fiebre_c": 38,
+   "fiebre_subjetiva": false,
+   "herida": "secrecion_purulenta",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 4,
+   "otros": [
+    "dolor en la cadera",
+    "poquito",
+    "no me preocupa mucho",
+    "a esta edad",
+    "no es nada grave",
+    "ya cogeré el sueño"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00030_14",
+  "esperado": "rojo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 1,
+   "fiebre_c": 38,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 1,
+   "otros": [
+    "vaga",
+    "no quiero levantarme",
+    "cama del hospital"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00030_7",
+  "esperado": "rojo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": null,
+   "fiebre_c": null,
+   "fiebre_subjetiva": true,
+   "herida": null,
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 1,
+   "otros": [
+    "estrós",
+    "nerviosa"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00000_3",
+  "esperado": "amarillo",
+  "predicho": "amarillo",
+  "sintomas": {
+   "dolor_nrs": 2,
+   "fiebre_c": 37.6,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "cosquilleo leve en la zona",
+    "apetito bajo"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00001_3",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 2,
+   "fiebre_c": null,
+   "fiebre_subjetiva": true,
+   "herida": null,
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": null,
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": []
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00001_7",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 5,
+   "fiebre_c": 37.4,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "caminar con cuidado",
+    "cuesta enderezarse bien",
+    "rojito alrededor de la herida",
+    "herida",
+    "dolorcito"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00003_3",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 5,
+   "fiebre_c": 37,
+   "fiebre_subjetiva": null,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "poquito rojita",
+    "pastillas"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00003_7",
+  "esperado": "amarillo",
+  "predicho": "amarillo",
+  "sintomas": {
+   "dolor_nrs": 1,
+   "fiebre_c": 37.6,
+   "fiebre_subjetiva": false,
+   "herida": "normal",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": []
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00006_3",
+  "esperado": "amarillo",
+  "predicho": "amarillo",
+  "sintomas": {
+   "dolor_nrs": 5,
+   "fiebre_c": 37.4,
+   "fiebre_subjetiva": null,
+   "herida": "normal",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "casi no como",
+    "normal"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00006_7",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 2,
+   "fiebre_c": 37,
+   "fiebre_subjetiva": null,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": null,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "rojito alrededor",
+    "hambre rapidita",
+    "olvido del almuerzo",
+    "aturdido"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00010_3",
+  "esperado": "amarillo",
+  "predicho": "amarillo",
+  "sintomas": {
+   "dolor_nrs": null,
+   "fiebre_c": null,
+   "fiebre_subjetiva": null,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "reducido",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "cosas verlas",
+    "puntos de sutura",
+    "poquito",
+    "normal después de la operación"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00012_3",
+  "esperado": "amarillo",
+  "predicho": "amarillo",
+  "sintomas": {
+   "dolor_nrs": 4,
+   "fiebre_c": 36,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": null,
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "no le sale nada raro ni huele feo",
+    "creo"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00012_7",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 4,
+   "fiebre_c": 37.9,
+   "fiebre_subjetiva": false,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "rojito leve",
+    "bajito",
+    "no provoca comer mucho",
+    "posición",
+    "molestia"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00013_3",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 4,
+   "fiebre_c": 37,
+   "fiebre_subjetiva": false,
+   "herida": "secrecion_purulenta",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "molesto pero soportable",
+    "eritema leve"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00013_7",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 5,
+   "fiebre_c": 37.1,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "nulo",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "poco tibia",
+    "un poquito tibia"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00015_3",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 4,
+   "fiebre_c": null,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": null,
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 2,
+   "otros": [
+    "caminando poquito a poquito",
+    "cicatrización",
+    "operación"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00016_1",
+  "esperado": "amarillo",
+  "predicho": "amarillo",
+  "sintomas": {
+   "dolor_nrs": 5,
+   "fiebre_c": 36.5,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "nulo",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "entumido",
+    "miedo a hacerme daño",
+    "me pone los nervios de punta",
+    "¿qué esperar?"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00019_1",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 3,
+   "fiebre_c": null,
+   "fiebre_subjetiva": null,
+   "herida": "secrecion_purulenta",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "reducido",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "un poquito",
+    "no me gusta poner números",
+    "cosita",
+    "verla",
+    "no le puso mucho cuidado",
+    "comida",
+    "raro"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00019_3",
+  "esperado": "amarillo",
+  "predicho": "amarillo",
+  "sintomas": {
+   "dolor_nrs": 5,
+   "fiebre_c": 37.3,
+   "fiebre_subjetiva": true,
+   "herida": "normal",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 1,
+   "otros": [
+    "por dentro algo puede estar mal",
+    "aunque por fuera se vea bien",
+    "operación",
+    "malísimo",
+    "casi no descanso",
+    "muy alterada"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00021_7",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 4,
+   "fiebre_c": 37.5,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "zona de operación",
+    "abdomen",
+    "movimiento, levantarse",
+    "rojito alrededor de la incisión",
+    "poquito",
+    "descanso"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00025_7",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 3,
+   "fiebre_c": 37,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "caminar",
+    "un poco",
+    "poco hambre",
+    "no quiero comer"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00027_3",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 3,
+   "fiebre_c": 37,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "barriga",
+    "día no sé qué día es hoy",
+    "todo se me revuelve",
+    "nudo estomacal",
+    "falta de ganas de comer"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00028_1",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 1,
+   "fiebre_c": null,
+   "fiebre_subjetiva": false,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 5,
+   "otros": [
+    "dolorcito en la cadera"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00029_7",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 2,
+   "fiebre_c": 37.4,
+   "fiebre_subjetiva": false,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "puntos de sutura",
+    "poquito y a veces me toca obligarme",
+    "sueño alterado",
+    "me despierto varias veces en la noche y me cuesta volver a conciliar el sueño"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00030_3",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 4,
+   "fiebre_c": 37.8,
+   "fiebre_subjetiva": true,
+   "herida": "normal",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "zona de operación",
+    "ardorcito",
+    "casi nada",
+    "a la fuerza",
+    "sensación de calor",
+    "dolor"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00035_7",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 5,
+   "fiebre_c": 37.7,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": null,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "operación"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00038_3",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 2,
+   "fiebre_c": null,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": null,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "movilidad",
+    "camino",
+    "andador",
+    "rojito leve",
+    "normal",
+    "duermo bien"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00038_7",
+  "esperado": "amarillo",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 5,
+   "fiebre_c": null,
+   "fiebre_subjetiva": null,
+   "herida": "enrojecida",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "¿Usted cómo ha estado, todo bien por allá?"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00000_1",
+  "esperado": "verde",
+  "predicho": "verde",
+  "sintomas": {
+   "dolor_nrs": 1,
+   "fiebre_c": 37.5,
+   "fiebre_subjetiva": true,
+   "herida": "normal",
+   "dolor_empeora": false,
+   "sangrado": null,
+   "disnea": false,
+   "vomito_persistente": null,
+   "apetito": null,
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "calorcito leve",
+    "cosquilleo leve",
+    "incomodidad al acostarse"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00000_14",
+  "esperado": "verde",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 2,
+   "fiebre_c": 37.4,
+   "fiebre_subjetiva": true,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": []
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00000_7",
+  "esperado": "verde",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 8,
+   "fiebre_c": 37.7,
+   "fiebre_subjetiva": false,
+   "herida": "secrecion_purulenta",
+   "dolor_empeora": null,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 3,
+   "otros": [
+    "sensación de que la herida me está tirando",
+    "cuerda tensa en el abdomen",
+    "punzada y miedo que sea algo grave"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00001_1",
+  "esperado": "verde",
+  "predicho": "verde",
+  "sintomas": {
+   "dolor_nrs": 1,
+   "fiebre_c": null,
+   "fiebre_subjetiva": false,
+   "herida": "normal",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": null,
+   "sueno": null,
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": []
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00001_14",
+  "esperado": "verde",
+  "predicho": "verde",
+  "sintomas": {
+   "dolor_nrs": 4,
+   "fiebre_c": 36.9,
+   "fiebre_subjetiva": false,
+   "herida": null,
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "nulo",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "miedo",
+    "no darme cuenta si algo se complica"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00002_1",
+  "esperado": "verde",
+  "predicho": "verde",
+  "sintomas": {
+   "dolor_nrs": 3,
+   "fiebre_c": 37.3,
+   "fiebre_subjetiva": true,
+   "herida": "normal",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "nulo",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "cosita",
+    "peligrosa",
+    "mira con mucho cuidado varias veces al día",
+    "pánico de infección"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00002_14",
+  "esperado": "verde",
+  "predicho": "verde",
+  "sintomas": {
+   "dolor_nrs": 4,
+   "fiebre_c": 37,
+   "fiebre_subjetiva": false,
+   "herida": "normal",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "nulo",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": []
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00002_3",
+  "esperado": "verde",
+  "predicho": "rojo",
+  "sintomas": {
+   "dolor_nrs": 9,
+   "fiebre_c": null,
+   "fiebre_subjetiva": null,
+   "herida": "normal",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 1,
+   "otros": [
+    "nada grave"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00002_7",
+  "esperado": "verde",
+  "predicho": "amarillo",
+  "sintomas": {
+   "dolor_nrs": 4,
+   "fiebre_c": null,
+   "fiebre_subjetiva": null,
+   "herida": "normal",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "nulo",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 2,
+   "otros": [
+    "normal"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00003_1",
+  "esperado": "verde",
+  "predicho": "verde",
+  "sintomas": {
+   "dolor_nrs": 1,
+   "fiebre_c": null,
+   "fiebre_subjetiva": false,
+   "herida": "normal",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": null,
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 2,
+   "otros": [
+    "molesta un poquito, pero es normal después de la operación",
+    "nada grave",
+    "recién operada"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00003_14",
+  "esperado": "verde",
+  "predicho": "amarillo",
+  "sintomas": {
+   "dolor_nrs": 3,
+   "fiebre_c": 37.4,
+   "fiebre_subjetiva": false,
+   "herida": "normal",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "nulo",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "un poquito tibia"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00004_1",
+  "esperado": "verde",
+  "predicho": "verde",
+  "sintomas": {
+   "dolor_nrs": 4,
+   "fiebre_c": 36.9,
+   "fiebre_subjetiva": false,
+   "herida": "normal",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": []
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00004_14",
+  "esperado": "verde",
+  "predicho": "verde",
+  "sintomas": {
+   "dolor_nrs": 0,
+   "fiebre_c": null,
+   "fiebre_subjetiva": null,
+   "herida": "normal",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "reducido",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "casa",
+    "puntos",
+    "sutura",
+    "pensamientos",
+    "sopa en el fogón"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00004_3",
+  "esperado": "verde",
+  "predicho": "verde",
+  "sintomas": {
+   "dolor_nrs": 4,
+   "fiebre_c": 37.1,
+   "fiebre_subjetiva": false,
+   "herida": null,
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "reducido",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": [
+    "cuidado con el brazo"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00004_7",
+  "esperado": "verde",
+  "predicho": "verde",
+  "sintomas": {
+   "dolor_nrs": 3,
+   "fiebre_c": 37.1,
+   "fiebre_subjetiva": false,
+   "herida": "normal",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "nulo",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": []
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00005_1",
+  "esperado": "verde",
+  "predicho": "amarillo",
+  "sintomas": {
+   "dolor_nrs": 4,
+   "fiebre_c": 36,
+   "fiebre_subjetiva": false,
+   "herida": "normal",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "reducido",
+   "sueno": "alterado",
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 1,
+   "otros": [
+    "perdida de sentido del tiempo"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00005_14",
+  "esperado": "verde",
+  "predicho": "verde",
+  "sintomas": {
+   "dolor_nrs": 1,
+   "fiebre_c": null,
+   "fiebre_subjetiva": null,
+   "herida": "normal",
+   "dolor_empeora": false,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": null,
+   "sueno": null,
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": []
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00005_3",
+  "esperado": "verde",
+  "predicho": "amarillo",
+  "sintomas": {
+   "dolor_nrs": null,
+   "fiebre_c": 37.2,
+   "fiebre_subjetiva": null,
+   "herida": "normal",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "reducido",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "leve",
+    "nada que me preocupe mucho",
+    "tibia pero normal",
+    "un poquito",
+    "menos hambre"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00005_7",
+  "esperado": "verde",
+  "predicho": "verde",
+  "sintomas": {
+   "dolor_nrs": 3,
+   "fiebre_c": 37,
+   "fiebre_subjetiva": false,
+   "herida": "normal",
+   "dolor_empeora": null,
+   "sangrado": null,
+   "disnea": null,
+   "vomito_persistente": null,
+   "apetito": "nulo",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": true,
+   "minimizacion": 0,
+   "otros": [
+    "no sé, como un dolorcito",
+    "no sé qué día es hoy"
+   ]
+  }
+ },
+ {
+  "caso_id": "caso_tray_pac_42_00006_1",
+  "esperado": "verde",
+  "predicho": "amarillo",
+  "sintomas": {
+   "dolor_nrs": null,
+   "fiebre_c": null,
+   "fiebre_subjetiva": null,
+   "herida": "enrojecida_leve",
+   "dolor_empeora": false,
+   "sangrado": false,
+   "disnea": false,
+   "vomito_persistente": false,
+   "apetito": "nulo",
+   "sueno": null,
+   "dolor_mencionado_sin_numero": false,
+   "minimizacion": 0,
+   "otros": []
+  }
+ }
+]
