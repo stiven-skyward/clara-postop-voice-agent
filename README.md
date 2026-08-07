@@ -22,6 +22,11 @@ básico de 8 GB de RAM.
 Requisitos: Linux x64 (o WSL2) · Python 3.10+ · `curl` · ~6 GB de disco ·
 opcional `tesseract-ocr tesseract-ocr-spa` para PDFs escaneados.
 
+> Ensayo cronometrado desde clon limpio: **~7,5 min hasta el sistema corriendo**
+> (clonado 2 s · dependencias 1,5 min · modelos 5,8 min según red · arranque 17 s).
+> En WSL2, clona en el sistema de archivos de Linux (`~/`), no en `/mnt/c`: la
+> ingesta y la carga de modelos son varias veces más rápidas.
+
 ```bash
 git clone <URL-DE-ESTE-REPO> && cd postop-voice-agent
 
