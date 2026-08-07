@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consola de conocimiento</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:900px;margin:1.5rem auto;padding:0 1rem;background:#f7f8fa;color:#1c2330}
+  h1{font-size:1.25rem} table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden}
+  th,td{padding:.5rem .7rem;border-bottom:1px solid #e8eaee;text-align:left;font-size:.9rem}
+  th{background:#eef1f5} .ok{color:#0a6b2d;font-weight:700} .proc{color:#8a6400;font-weight:700}
+  button{cursor:pointer;border:1px solid #c8cdd6;border-radius:8px;padding:.35rem .7rem;background:#fff}
+  .danger{color:#a1160a} #drop{border:2px dashed #b9c0cc;border-radius:12px;padding:1.6rem;text-align:center;background:#fff;margin:.8rem 0}
+  #metrics{font-size:.85rem;background:#fff;border:1px solid #e2e5ea;border-radius:10px;padding:.8rem;white-space:pre-wrap}
+  a{color:#0b57d0}
+</style>
+</head>
+<body>
+<h1>🗂️ Consola de conocimiento <a href="/" style="float:right;font-size:.85rem">← interfaz de llamada</a></h1>
+<div id="drop">
+  Arrastre aquí un documento (PDF, TXT o MD) o
+  <input type="file" id="file" accept=".pdf,.txt,.md">
+  <div id="upstatus"></div>
+</div>
+<table>
+  <thead><tr><th>Documento</th><th>Idioma</th><th>Escenario</th><th>Págs</th><th>Chunks</th><th>Estado</th><th></th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<h3>Métricas del sistema</h3>
+<div id="metrics">cargando…</div>
+<script>
+const $ = id => document.getElementById(id);
+async function refresh(){
+  const docs = await (await fetch('/api/docs')).json();
+  $('rows').innerHTML = docs.map(d => `<tr>
+    <td title="${d.fichero}">${d.titulo}</td><td>${d.idioma||''}</td><td>${d.escenario||''}</td>
+    <td>${d.paginas||''}</td><td>${d.n_chunks||''}</td>
+    <td class="${d.estado==='disponible'?'ok':'proc'}">${d.estado==='disponible'?'✔ procesado y disponible':d.estado}</td>
+    <td><button class="danger" onclick="del('${d.doc_id}')">eliminar</button></td></tr>`).join('')
+    || '<tr><td colspan="7">Sin documentos. El agente no tiene conocimiento cargado.</td></tr>';
+  $('metrics').textContent = JSON.stringify(await (await fetch('/api/metrics')).json(), null, 2);
+}
+async function del(id){
+  if(!confirm('¿Eliminar este documento? El agente lo olvidará de inmediato.')) return;
+  await fetch('/api/docs/'+id, {method:'DELETE'});
+  refresh();
+}
+async function upload(f){
+  $('upstatus').textContent = `Procesando «${f.name}»…`;
+  const fd = new FormData(); fd.append('file', f);
+  const r = await (await fetch('/api/docs', {method:'POST', body:fd})).json();
+  $('upstatus').textContent = r.error ? ('Error: ' + r.error)
+    : `«${r.titulo}»: ${r.estado} (${r.n_chunks||0} chunks, ${r.segundos_ingesta||'?'} s)`;
+  refresh();
+}
+$('file').onchange = e => e.target.files[0] && upload(e.target.files[0]);
+$('drop').ondragover = e => e.preventDefault();
+$('drop').ondrop = e => { e.preventDefault(); e.dataTransfer.files[0] && upload(e.dataTransfer.files[0]); };
+refresh(); setInterval(refresh, 5000);
+</script>
+</body>
+</html>

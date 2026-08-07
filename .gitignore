@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+models/*
+!models/.gitkeep
+data/knowledge.db*
+data/uploads/
+data/logs/
+data/test_*.wav
+nohup.out

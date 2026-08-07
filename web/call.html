@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Llamada de seguimiento postoperatorio</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:760px;margin:1.5rem auto;padding:0 1rem;background:#f7f8fa;color:#1c2330}
+  h1{font-size:1.25rem} .row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin:.6rem 0}
+  select,button{font-size:1rem;padding:.5rem .8rem;border-radius:8px;border:1px solid #c8cdd6;background:#fff}
+  button{cursor:pointer} button.primary{background:#0b57d0;color:#fff;border:none}
+  button:disabled{opacity:.45;cursor:default}
+  #status{font-weight:600} .pill{padding:.15rem .6rem;border-radius:99px;font-size:.85rem;font-weight:700}
+  .verde{background:#d6f2dd;color:#0a6b2d}.amarillo{background:#fdf0c7;color:#8a6400}.rojo{background:#fbd9d3;color:#a1160a}
+  #log{background:#fff;border:1px solid #e2e5ea;border-radius:10px;padding:1rem;min-height:280px;max-height:52vh;overflow-y:auto}
+  .turn{margin:.5rem 0;line-height:1.35}.who{font-weight:700;font-size:.8rem;color:#5a6472}
+  .agent .bubble{background:#eef3fe;border-radius:10px;padding:.5rem .7rem;display:inline-block}
+  .patient .bubble{background:#eefbf1;border-radius:10px;padding:.5rem .7rem;display:inline-block}
+  #summary{white-space:pre-wrap;background:#fff;border:1px solid #e2e5ea;border-radius:10px;padding:1rem;display:none;font-size:.9rem}
+  a{color:#0b57d0}
+</style>
+</head>
+<body>
+<h1>📞 Llamada de seguimiento postoperatorio <a href="/admin" style="float:right;font-size:.85rem">consola de conocimiento →</a></h1>
+<div class="row">
+  <select id="patient"></select>
+  <label>Día postop: <select id="day"><option>1</option><option selected>3</option><option>7</option><option>14</option></select></label>
+  <button id="btnStart" class="primary">Iniciar llamada</button>
+  <button id="btnEnd" disabled>Colgar</button>
+  <span id="status">listo</span>
+  <span id="triaje" class="pill verde" style="display:none">verde</span>
+</div>
+<div id="log"></div>
+<h3 style="display:none" id="sumtitle">Resumen de la llamada</h3>
+<div id="summary"></div>
+
+<script>
+let ws, ac, mic, workletNode, playCtx, playQueue = [], playing = false, srOut = 24000;
+const $ = id => document.getElementById(id);
+
+async function loadPatients(){
+  const ps = await (await fetch('/api/patients')).json();
+  $('patient').innerHTML = ps.map(p =>
+    `<option value='${encodeURIComponent(JSON.stringify(p))}'>${p.nombre} — ${p.procedimiento} (${p.edad} años)</option>`).join('');
+}
+loadPatients();
+
+function log(who, text){
+  const cls = who === 'Clara' ? 'agent' : 'patient';
+  $('log').insertAdjacentHTML('beforeend',
+    `<div class="turn ${cls}"><div class="who">${who}</div><div class="bubble">${text}</div></div>`);
+  $('log').scrollTop = $('log').scrollHeight;
+}
+
+const WORKLET = `
+class Cap extends AudioWorkletProcessor{
+  constructor(){super(); this.buf=[]; this.ratio=sampleRate/16000; this.acc=0;}
+  process(inputs){
+    const ch = inputs[0][0]; if(!ch) return true;
+    for(let i=0;i<ch.length;i+=this.ratio){ this.buf.push(ch[Math.floor(i)]); }
+    if(this.buf.length>=1024){ this.port.postMessage(new Float32Array(this.buf)); this.buf=[]; }
+    return true;
+  }
+}
+registerProcessor('cap', Cap);`;
+
+function stopPlayback(){
+  playQueue = [];
+  if(playing && playCtx){ playCtx.close(); playCtx = null; playing = false; }
+}
+
+function playPCM(int16, sr){
+  playQueue.push({int16, sr});
+  if(!playing) drain();
+}
+async function drain(){
+  playing = true;
+  while(playQueue.length){
+    const {int16, sr} = playQueue.shift();
+    if(!playCtx || playCtx.state === 'closed') playCtx = new AudioContext({sampleRate: sr});
+    const f32 = Float32Array.from(int16, v => v/32768);
+    const buf = playCtx.createBuffer(1, f32.length, sr);
+    buf.copyToChannel(f32, 0);
+    const src = playCtx.createBufferSource();
+    src.buffer = buf; src.connect(playCtx.destination);
+    await new Promise(res => { src.onended = res; src.start(); });
+  }
+  playing = false;
+}
+
+$('btnStart').onclick = async () => {
+  const p = JSON.parse(decodeURIComponent($('patient').value));
+  p.dia_postop = parseInt($('day').value);
+  ws = new WebSocket(`ws://${location.host}/ws/call`);
+  ws.binaryType = 'arraybuffer';
+  ws.onopen = async () => {
+    ws.send(JSON.stringify({type:'start', patient:p}));
+    ac = new AudioContext();
+    mic = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
+    await ac.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET],{type:'text/javascript'})));
+    const srcNode = ac.createMediaStreamSource(mic);
+    workletNode = new AudioWorkletNode(ac,'cap');
+    workletNode.port.onmessage = e => { if(ws.readyState===1) ws.send(e.data.buffer); };
+    srcNode.connect(workletNode);
+    $('status').textContent = 'en llamada — hable con naturalidad';
+    $('btnStart').disabled = true; $('btnEnd').disabled = false;
+    $('triaje').style.display='inline-block';
+  };
+  ws.onmessage = ev => {
+    if(typeof ev.data === 'string'){
+      const m = JSON.parse(ev.data);
+      if(m.type==='audio_start'){ srOut = m.sr; }
+      else if(m.type==='transcript'){ log('Usted', m.text); $('status').textContent='Clara está respondiendo…'; }
+      else if(m.type==='agent_text'){ log('Clara', m.text);
+        $('triaje').className = 'pill ' + m.triaje; $('triaje').textContent = m.triaje + (m.alerta ? ' · ALERTA' : ''); }
+      else if(m.type==='turn_end'){ $('status').textContent='en llamada — hable con naturalidad'; }
+      else if(m.type==='user_speech_start'){ stopPlayback(); }
+      else if(m.type==='call_summary'){
+        $('sumtitle').style.display='block'; $('summary').style.display='block';
+        $('summary').textContent = JSON.stringify(m.summary, null, 2);
+      }
+    } else {
+      playPCM(new Int16Array(ev.data), srOut);
+    }
+  };
+  ws.onclose = () => endCall(false);
+};
+
+function endCall(sendEnd = true){
+  if(sendEnd && ws && ws.readyState===1) ws.send(JSON.stringify({type:'end'}));
+  if(mic) mic.getTracks().forEach(t=>t.stop());
+  if(ac) ac.close();
+  $('btnStart').disabled=false; $('btnEnd').disabled=true;
+  $('status').textContent='llamada finalizada';
+}
+$('btnEnd').onclick = () => endCall(true);
+</script>
+</body>
+</html>
