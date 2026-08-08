@@ -40,8 +40,14 @@ bash scripts/download_models.sh
 bash scripts/run.sh
 ```
 
-Abrir **http://127.0.0.1:8000** → interfaz de llamada (permitir micrófono).
-**http://127.0.0.1:8000/admin** → consola de conocimiento.
+Abrir **http://localhost:8000** → interfaz de llamada (permitir micrófono).
+**http://localhost:8000/admin** → consola de conocimiento.
+
+> **WSL2 + navegador de Windows:** si `localhost:8000` no abre desde Windows,
+> arranca el servidor con `POSTOP_HOST=0.0.0.0 bash scripts/run.sh` y ejecuta
+> `scripts/windows_portproxy.ps1` en PowerShell **como administrador** (reenvía
+> localhost de Windows a WSL; re-ejecútalo si reinicias, la IP de WSL cambia).
+> El micrófono requiere origen seguro: usa `localhost` o `127.0.0.1`, nunca la IP.
 
 Para cargar el corpus del reto (opcional, ~30-60 min en CPU; el agente funciona
 desde el primer documento que se suba por la consola):
