@@ -39,6 +39,9 @@ STT_PROMPT = (
     "enrojecimiento, secreción, hinchazón, acetaminofén, ibuprofeno. "
     "Tengo treinta y ocho punto cinco de fiebre. El dolor está en siete de diez."
 )
+# prompt mínimo para respuestas cortas: solo vocabulario, sin frases que el
+# modelo pueda "continuar" cuando el audio es breve
+STT_PROMPT_CORTO = "Dolor, fiebre, herida, hinchazón, secreción. Uno, dos, tres, cuatro, cinco, seis, siete, ocho, nueve, diez."
 
 # --- TTS ---
 TTS_ENGINE = os.getenv("POSTOP_TTS", "kokoro" if PROFILE == "principal" else "piper")

@@ -172,6 +172,53 @@ def _same_lemma(w: str, target: str) -> bool:
     return i >= max(4, int(0.7 * len(target)))
 
 
+# Números hablados: el paciente responde "seis" a "¿de 0 a 10?" y whisper
+# devuelve "Sais", "¡Achoo!", "Ciete"… Con audio de medio segundo el modelo
+# pequeño es inestable, así que se corrige fonéticamente contra los 11 números.
+_NUMEROS = {
+    "cero": "cero", "uno": "uno", "una": "uno", "dos": "dos", "tres": "tres",
+    "cuatro": "cuatro", "cinco": "cinco", "seis": "seis", "siete": "siete",
+    "ocho": "ocho", "nueve": "nueve", "diez": "diez",
+}
+# variantes fonéticas observadas en transcripción real
+_NUM_VARIANTES = {
+    "sais": "seis", "seys": "seis", "sei": "seis", "says": "seis", "sais": "seis",
+    "achoo": "ocho", "acho": "ocho", "osho": "ocho", "ochio": "ocho", "hocho": "ocho",
+    "ciete": "siete", "siet": "siete", "syete": "siete", "shiete": "siete",
+    "nuebe": "nueve", "nuve": "nueve", "nweve": "nueve",
+    "quatro": "cuatro", "cuatr": "cuatro", "kuatro": "cuatro",
+    "sinco": "cinco", "zinco": "cinco", "cincoo": "cinco",
+    "diescy": "diez", "dies": "diez", "diaz": "diez",
+    "trez": "tres", "tress": "tres", "dose": "doce",
+}
+
+
+def interpretar_numero_hablado(text: str) -> str | None:
+    """Si la respuesta es una o dos palabras y suena a un número del 0 al 10,
+    devuelve ese número en letras. Devuelve None si no aplica."""
+    limpio = re.sub(r"[^\wáéíóúñü ]", " ", text.lower()).strip()
+    palabras = [_norm(p) for p in limpio.split() if p]
+    if not palabras or len(palabras) > 2:
+        return None
+    for p in palabras:
+        if re.fullmatch(r"\d{1,2}", p) and 0 <= int(p) <= 10:
+            return p                       # whisper ya devolvió el dígito
+        if p in _NUMEROS:
+            return _NUMEROS[p]
+        if p in _NUM_VARIANTES:
+            return _NUM_VARIANTES[p]
+    # Similitud fonética SOLO con alta confianza: devolver un número equivocado
+    # («cero» oído como «seis») es peor que no devolver ninguno, porque el
+    # agente puede simplemente volver a preguntar.
+    for p in palabras:
+        if len(p) < 3:
+            continue
+        mejor = max(_NUMEROS, key=lambda n: _ratio(p, n))
+        if _ratio(p, mejor) >= 0.8:
+            return _NUMEROS[mejor]
+    return None
+
+
 def repair_asr(text: str) -> tuple[str, list[str]]:
     """Repara palabras irreconocibles acercándolas al léxico clínico.
     Devuelve (texto_reparado, lista_de_reparaciones)."""

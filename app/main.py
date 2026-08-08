@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from app import config, llm, metrics, stt, tts
 from app.agent.orchestrator import CallState, Patient, close_call, greeting, process_turn
 from app.rag import ingest
-from app.rag.lexicon import repair_asr
+from app.rag.lexicon import interpretar_numero_hablado, repair_asr
 from app.rag.store import get_store
 from app.vad import StreamingVAD
 
@@ -297,6 +297,20 @@ async def ws_call(ws: WebSocket):
         text = stt.transcribe(audio, context=last_q)
         tm.mark("stt_done")
         if text:
+            # si Clara acaba de pedir la escala de dolor y la respuesta es corta,
+            # se resuelve fonéticamente contra los números (whisper convierte
+            # "seis" en "Sais" y "ocho" en "Achoo" con audio de medio segundo)
+            if last_q and re.search(r"0 a 10|cero a diez|escala", last_q):
+                num = interpretar_numero_hablado(text)
+                if num:
+                    if num not in text.lower():
+                        tm.set(numero_corregido=[text, num])
+                    text = num
+                elif len(text.split()) <= 2:
+                    # respuesta corta que NO se reconoce como número tras pedir
+                    # la escala: preferible volver a preguntar que adivinar mal
+                    text = ""
+                    tm.set(numero_no_reconocido=True)
             text, reparaciones = repair_asr(text)
             if reparaciones:
                 tm.set(asr_reparado=reparaciones)

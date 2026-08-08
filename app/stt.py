@@ -1,7 +1,9 @@
 """STT con whisper.cpp (pywhispercpp), CPU-only, español."""
 from __future__ import annotations
 
+import re
 import threading
+import unicodedata
 
 import numpy as np
 
@@ -44,30 +46,74 @@ def _enhance(audio: np.ndarray) -> np.ndarray:
     return np.clip(audio * (0.9 / peak), -1.0, 1.0)
 
 
+def _norm_basura(s: str) -> str:
+    """Normaliza para comparar con la lista de alucinaciones típicas."""
+    s = unicodedata.normalize("NFD", s.lower())
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    return re.sub(r"[^\w ]", "", s).strip()
+
+
+_BASURA = {
+    "", "gracias", "subtitulos por la comunidad de amaraorg",
+    "gracias por ver el video", "musica", "silencio", "silence",
+    "subtitulos realizados por la comunidad de amaraorg", "suscribete",
+    "amaraorg", "aplausos", "risas", "ruido", "subtitulado por la comunidad",
+    "mas informacion en wwwamaraorg", "gracias por su atencion",
+}
+
+# velocidad de habla imposible: por encima de esto, whisper está "continuando"
+# el prompt en vez de transcribir (alucinación típica con audio corto o ruidoso)
+_MAX_CAR_POR_SEG = 25.0
+
+
 def transcribe(audio_f32_16k: np.ndarray, context: str | None = None) -> str:
     """Transcribe audio mono float32 @16 kHz a texto en español.
 
-    `context` (la última pregunta del agente) sesga el decodificador de whisper
-    hacia el vocabulario esperado: si se preguntó por "hinchazón", una respuesta
-    corta y confusa se resuelve hacia esos términos.
+    Defensas contra la alucinación de whisper (que en audio corto o con ruido
+    inventa frases largas y plausibles, p. ej. «seis» → «saber si el hombre
+    está en el círculo»):
+      1. El prompt de contexto solo se usa con audio suficientemente largo.
+      2. Decodificación golosa (temperature 0) y umbrales estrictos.
+      3. Relleno de silencio: whisper es inestable por debajo de ~1 s.
+      4. Rechazo por velocidad de habla imposible.
+      5. Lista de frases basura típicas.
     """
     if audio_f32_16k.size < 1600:  # <0.1 s
         return ""
-    audio_f32_16k = _enhance(audio_f32_16k)
-    prompt = config.STT_PROMPT
-    if context:
-        prompt = f"{prompt} Agente: {context[:160]}"
+    audio = _enhance(audio_f32_16k)
+    dur = len(audio) / 16000
+
+    # (3) whisper trabaja mejor con al menos ~1 s de señal
+    if dur < 1.0:
+        audio = np.concatenate([audio, np.zeros(int(16000 * (1.0 - dur)), np.float32)])
+
+    # (1) con respuestas cortas ("seis", "sí") el prompt largo domina y alucina
+    if dur >= 1.6:
+        prompt = config.STT_PROMPT + (f" Agente: {context[:140]}" if context else "")
+    elif dur >= 0.8:
+        prompt = config.STT_PROMPT_CORTO
+    else:
+        prompt = ""
+
     m = get_model()
     with _lock:  # whisper.cpp context no es thread-safe
         segments = m.transcribe(
-            audio_f32_16k,
+            audio,
             language="es",
             initial_prompt=prompt,
             translate=False,
+            temperature=0.0,          # (2) sin muestreo aleatorio
+            temperature_inc=0.0,      # sin escalada de temperatura al fallar
+            entropy_thold=2.2,
+            logprob_thold=-0.8,
+            no_speech_thold=0.5,
+            suppress_nst=True,        # suprime tokens que no son de habla
         )
     text = " ".join(s.text.strip() for s in segments).strip()
-    # whisper alucina texto en silencios: filtra marcas típicas
-    if text.lower() in ("", "gracias.", "subtítulos por la comunidad de amara.org",
-                        "¡gracias por ver el vídeo!", "[música]", "(música)"):
+
+    if _norm_basura(text) in _BASURA or not text.strip(" .…"):
+        return ""
+    # (4) más caracteres de los que caben en el audio → es invención
+    if len(text) / max(dur, 0.3) > _MAX_CAR_POR_SEG:
         return ""
     return text
