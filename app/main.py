@@ -42,11 +42,20 @@ def _startup() -> None:
 
 
 def _warm_tts_phrases() -> None:
-    """Pre-sintetiza las frases fijas críticas (1ª oración del escalamiento)."""
+    """Pre-sintetiza las frases fijas críticas (escalamiento y aclaraciones)."""
     try:
         tts.synthesize_cached("Por lo que me cuenta, esto lo debe revisar el equipo médico hoy mismo.")
+        for f in _CLARIFY_WARM:
+            tts.synthesize_cached(f)
     except Exception:
         pass
+
+
+_CLARIFY_WARM = [
+    "Disculpe, no alcancé a escucharle bien. ¿Me lo puede repetir, por favor?",
+    "Sigo sin entenderle bien, y es importante para poder ayudarle. ¿Puede repetirlo despacio y cerquita al teléfono?",
+    "No logro escucharle con claridad. No se preocupe: voy a dejar registrado que el equipo de salud le devuelva la llamada hoy mismo.",
+]
 
 
 def _warm_llm() -> None:
@@ -222,6 +231,14 @@ async def ws_call(ws: WebSocket):
             send({"type": "error", "detail": str(e)})
             send({"type": "turn_end"})
 
+    unclear = {"n": 0}
+
+    _CLARIFY = [
+        "Disculpe, no alcancé a escucharle bien. ¿Me lo puede repetir, por favor?",
+        "Sigo sin entenderle bien, y es importante para poder ayudarle. ¿Puede repetirlo despacio y cerquita al teléfono?",
+        "No logro escucharle con claridad. No se preocupe: voy a dejar registrado que el equipo de salud le devuelva la llamada hoy mismo.",
+    ]
+
     def _run_turn(audio: np.ndarray) -> None:
         assert state is not None
         tm = metrics.TurnMetrics(state.call_id, state.turno + 1)
@@ -229,8 +246,30 @@ async def ws_call(ws: WebSocket):
         text = stt.transcribe(audio)
         tm.mark("stt_done")
         if not text:
-            send({"type": "no_speech"})
+            # reparación conversacional: nunca dejar silencio muerto
+            n = min(unclear["n"], len(_CLARIFY) - 1)
+            unclear["n"] += 1
+            frase = _CLARIFY[n]
+            speak(frase, tm, cached=True)
+            send({"type": "agent_text", "text": frase,
+                  "triaje": state.nivel, "alerta": state.alerted})
+            if n == len(_CLARIFY) - 1:
+                # tres intentos fallidos → registrar para contacto humano
+                metrics.log_alert(state.call_id, {
+                    "paciente": state.patient.nombre,
+                    "paciente_id": state.patient.paciente_id,
+                    "procedimiento": state.patient.procedimiento,
+                    "dia_postop": state.patient.dia_postop,
+                    "nivel": "amarillo",
+                    "razones": ["Comunicación fallida: no se logró entender al paciente tras 3 intentos"],
+                    "sintomas": state.symptoms.as_dict(),
+                    "transcripcion_disparadora": "(audio ininteligible)",
+                })
+            tm.set(no_entendido=True)
+            tm.save()
+            send({"type": "turn_end"})
             return
+        unclear["n"] = 0
         send({"type": "transcript", "text": text})
         streamer = tts.SentenceStreamer()
         first_tok = False

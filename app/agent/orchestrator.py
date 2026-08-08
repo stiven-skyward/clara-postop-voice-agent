@@ -59,9 +59,10 @@ def _system_prompt(p: Patient) -> str:
 
 def greeting(state: CallState) -> str:
     p = state.patient
+    # "Le llamo": trato neutro válido para cualquier género del paciente
     text = (
         f"Hola {p.nombre.split()[0]}, le habla Clara, del programa de seguimiento "
-        f"de su clínica. La llamo para saber cómo sigue después de su "
+        f"de su clínica. Le llamo para saber cómo sigue después de su "
         f"{p.procedimiento.lower()}, que fue hace {p.dia_postop} "
         f"día{'s' if p.dia_postop != 1 else ''}. "
         f"Para empezar, ¿cómo ha estado el dolor? De 0 a 10, ¿en cuánto lo siente?"

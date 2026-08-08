@@ -45,11 +45,14 @@ TTS_ENGINE = os.getenv("POSTOP_TTS", "kokoro" if PROFILE == "principal" else "pi
 KOKORO_MODEL = MODELS_DIR / "kokoro-v1.0.onnx"
 KOKORO_VOICES = MODELS_DIR / "voices-v1.0.bin"
 KOKORO_VOICE = os.getenv("POSTOP_KOKORO_VOICE", "ef_dora")
+TTS_SPEED = float(os.getenv("POSTOP_TTS_SPEED", "1.0"))
 PIPER_VOICE = MODELS_DIR / os.getenv("POSTOP_PIPER_VOICE", "es_MX-claude-high.onnx")
 
 # --- VAD ---
 VAD_MODEL = MODELS_DIR / "silero_vad.onnx"
-VAD_SILENCE_MS = int(os.getenv("POSTOP_VAD_SILENCE_MS", "500"))  # fin de habla
+# 650 ms de silencio para cerrar el turno: margen para hablantes lentos o con
+# dificultades del habla, sin penalizar demasiado la latencia
+VAD_SILENCE_MS = int(os.getenv("POSTOP_VAD_SILENCE_MS", "650"))
 VAD_THRESHOLD = float(os.getenv("POSTOP_VAD_THRESHOLD", "0.5"))
 
 # --- RAG ---

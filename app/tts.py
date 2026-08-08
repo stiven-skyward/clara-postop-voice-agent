@@ -25,7 +25,7 @@ class _KokoroEngine:
 
     def synth(self, text: str) -> tuple[bytes, int]:
         samples, sr = self.k.create(
-            text, voice=config.KOKORO_VOICE, speed=1.05, lang="es"
+            text, voice=config.KOKORO_VOICE, speed=config.TTS_SPEED, lang="es"
         )
         pcm = np.clip(samples * 32767, -32768, 32767).astype(np.int16)
         return pcm.tobytes(), sr
@@ -60,17 +60,50 @@ def get_engine():
     return _engine
 
 
-_NUM = {"0": "cero", "1": "uno", "2": "dos", "3": "tres", "4": "cuatro",
-        "5": "cinco", "6": "seis", "7": "siete", "8": "ocho", "9": "nueve",
-        "10": "diez"}
+_U = ["cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho",
+      "nueve", "diez", "once", "doce", "trece", "catorce", "quince", "dieciséis",
+      "diecisiete", "dieciocho", "diecinueve", "veinte", "veintiuno", "veintidós",
+      "veintitrés", "veinticuatro", "veinticinco", "veintiséis", "veintisiete",
+      "veintiocho", "veintinueve"]
+_D = {3: "treinta", 4: "cuarenta", 5: "cincuenta", 6: "sesenta", 7: "setenta",
+      8: "ochenta", 9: "noventa"}
+
+
+def _n2w(n: int) -> str:
+    """Número entero (0-999) a palabras en español."""
+    if n < 30:
+        return _U[n]
+    if n < 100:
+        d, u = divmod(n, 10)
+        return _D[d] + (f" y {_U[u]}" if u else "")
+    if n < 1000:
+        c, r = divmod(n, 100)
+        pre = {1: "ciento", 5: "quinientos", 7: "setecientos", 9: "novecientos"}.get(
+            c, _U[c] + "cientos")
+        if c == 1 and r == 0:
+            return "cien"
+        return pre + (f" {_n2w(r)}" if r else "")
+    return str(n)
+
+
+def _num_word(m: re.Match) -> str:
+    """Expande '38.9' / '38,9' / '7' a palabras (la voz lee dígitos robótico)."""
+    ent = int(m.group(1))
+    dec = m.group(2)
+    out = _n2w(ent) if ent < 1000 else m.group(1)
+    if dec:
+        out += " punto " + " ".join(_U[int(d)] for d in dec)
+    return out
 
 
 def _normalize(text: str) -> str:
-    """Limpieza para voz: citas [n], símbolos y números frecuentes."""
+    """Limpieza para voz: citas [n], símbolos, números a palabras y prosodia."""
     t = re.sub(r"\[(\d+)\]", "", text)              # las citas no se leen
-    t = t.replace("°C", " grados").replace("º", " grados")
+    t = t.replace("°C", " grados").replace("º", " grados").replace("%", " por ciento")
     t = re.sub(r"\*+", "", t)
-    t = re.sub(r"(\d+)\s*/\s*10", lambda m: f"{_NUM.get(m.group(1), m.group(1))} sobre diez", t)
+    t = re.sub(r"(\d+)\s*/\s*10", lambda m: f"{_n2w(int(m.group(1)))} sobre diez", t)
+    t = re.sub(r"\b(\d{1,3})[.,](\d{1,2})\b", _num_word, t)   # decimales
+    t = re.sub(r"\b(\d{1,3})\b()", _num_word, t)              # enteros
     t = re.sub(r"\s{2,}", " ", t).strip()
     return t
 

@@ -25,10 +25,23 @@ def get_model():
     return _model
 
 
+def _enhance(audio: np.ndarray) -> np.ndarray:
+    """Acondicionamiento para condiciones no ideales:
+    - remoción de componente DC (micrófonos baratos con offset);
+    - normalización de ganancia a pico 0.9 (voces débiles, micrófono lejano).
+    No se amplifica lo que es prácticamente silencio (evita subir ruido puro)."""
+    audio = audio - float(np.mean(audio))
+    peak = float(np.max(np.abs(audio))) or 1.0
+    if peak < 0.05:
+        return audio
+    return np.clip(audio * (0.9 / peak), -1.0, 1.0)
+
+
 def transcribe(audio_f32_16k: np.ndarray) -> str:
     """Transcribe audio mono float32 @16 kHz a texto en español."""
     if audio_f32_16k.size < 1600:  # <0.1 s
         return ""
+    audio_f32_16k = _enhance(audio_f32_16k)
     m = get_model()
     with _lock:  # whisper.cpp context no es thread-safe
         segments = m.transcribe(
