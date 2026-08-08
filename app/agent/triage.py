@@ -84,10 +84,17 @@ def sanitize_extraction(ext: dict, user_text: str) -> dict:
     # "dolor_nrs: 10" en textos que no hablan de dolor (se observó con
     # inyecciones de prompt). Exigimos palabra del dominio + un número.
     tnum = _palabras_a_numero(tn)
-    if out.get("dolor_nrs") is not None and not (
-            re.search(r"dolor|duele|molest|adolori|escala|punzad|arde", tn)
-            and re.search(r"\d", tnum)):
-        out.pop("dolor_nrs")
+    # Asimetría clínica en el dolor: una puntuación BAJA inferida por el modelo
+    # sin que el paciente diera un número es exactamente lo que produce el
+    # minimizador ("un poquito molesto, uno aguanta" → el LLM emitía 2 y
+    # enmascaraba un dolor real de 9/10). Solo se acepta si hay respaldo
+    # numérico explícito; una puntuación alta sí se acepta (va del lado seguro).
+    dolor = out.get("dolor_nrs")
+    if dolor is not None:
+        sin_dominio = not re.search(r"dolor|duele|molest|adolori|escala|punzad|arde", tn)
+        respaldo = fallback_extract(user_text).get("dolor_nrs") is not None
+        if sin_dominio or (float(dolor) < 5 and not respaldo):
+            out.pop("dolor_nrs")
     if out.get("fiebre_c") is not None and not (
             re.search(r"fiebre|temperatur|calentur|grados|termometr|febril", tn)
             and re.search(r"\d", tnum)):
