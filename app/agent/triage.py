@@ -21,6 +21,11 @@ _RED_TEXT = [
     "labios morados", "pantorrilla hinchada", "pierna hinchada y caliente",
     "pus", "se abrio la herida", "herida abierta", "vomito con sangre",
     "no orino", "sin orinar",
+    # formas pronominales colombianas de dehiscencia (antes solo casaban los
+    # literales impersonales y el rojo dependía por completo del LLM)
+    "se me abrio", "abrio la herida", "se abrio la incision", "reventaron los puntos",
+    "se me reventaron", "soltaron los puntos", "se abrieron los puntos",
+    "se me solto la herida", "se me salieron los puntos",
 ]
 # Solo señales con valor clínico real; las molestias normales de recuperación
 # (sueño irregular, poco apetito, mareo leve) NO suben el nivel: se registran
@@ -43,8 +48,9 @@ def _norm(s: str) -> str:
 _GROUNDING = {
     "dolor_empeora": r"empeor|aument|subiendo|sube|mas fuerte|más fuerte|peor|creciendo",
     "sangrado": r"sangr",
-    "disnea": r"respir|ahog|aire|asfixi",
-    "vomito_persistente": r"vomit|devolv|trasboc",
+    "disnea": r"respir|ahog|aire|asfixi|alient|fatig|resuell|agitad|jadea|"
+              r"cansancio al camin|me canso|sofoc",
+    "vomito_persistente": r"vomit|devolv|trasboc|arroj|guacar|basque",
     "fiebre_subjetiva": r"fiebre|calentur|temperatura|destempl|febril|caliente|acalorad",
 }
 
@@ -82,11 +88,14 @@ def sanitize_extraction(ext: dict, user_text: str) -> dict:
     # anclaje inverso: secreción purulenta descrita con eufemismos ("liquidito
     # amarillito") que el LLM a veces clasifica benigna — el regex la fuerza,
     # respetando negaciones ("nada de pus")
-    m = re.search(r"(?:liquid\w*|secre\w*|supura\w*|sale|solt\w*|salien\w*)[^.]{0,25}(?:amarill\w*|verd\w*)"
-                  r"|pus|huele (?:feo|mal|maluco)|mal olor|olor feo", tn)
-    if m and not re.search(_NEGATION, tn[max(0, m.start() - 30):m.start()]):
+    for m in re.finditer(
+            r"(?:liquid\w*|secre\w*|supura\w*|sale|solt\w*|salien\w*)[^.]{0,25}(?:amarill\w*|verd\w*)"
+            r"|pus|huele (?:feo|mal|maluco)|mal olor|olor feo", tn):
+        if re.search(_NEGATION, tn[max(0, m.start() - 30):m.start()]):
+            continue          # esta ocurrencia está negada; seguir buscando
         if out.get("herida") not in ("abierta",):
             out["herida"] = "secrecion_purulenta"
+        break
     return out
 
 
@@ -115,8 +124,14 @@ def _palabras_a_numero(texto: str) -> str:
         t = re.sub(rf"\b{dec}\b", str(_PALABRA_NUM[dec]), t)
     for pal, v in _PALABRA_NUM.items():
         t = re.sub(rf"\b{pal}\b", str(v), t)
-    t = re.sub(r"\b(\d+)\s+punto\s+(\d+)\b", r"\1.\2", t)
+    t = re.sub(r"\b(\d+)\s+(?:punto|coma|con)\s+(\d+)\b", r"\1.\2", t)
     return t
+
+
+# unidades temporales/posológicas: un número seguido de estas NO es un síntoma
+_NO_ES_MEDIDA = r"(?:hora|dia|día|minuto|semana|mes|año|ano|punto de sutura|puntos|" \
+                r"pastilla|tableta|capsula|cápsula|gota|veces|vez|cucharada|mg|ml|" \
+                r"miligramo|centimetro|centímetro|cm|noche|mañana|tarde)"
 
 
 # Síntomas atribuidos a OTRA persona: en las llamadas interviene un familiar
@@ -128,10 +143,21 @@ _TERCERO = re.compile(
     r"nuer[a]|primo|prima|ti[oa]|sobrin[oa])\b")
 
 
+# marcas de que el síntoma SÍ es del paciente aunque lo narre un familiar
+# ("mi hija dice que TENGO 39 de fiebre")
+_PRIMERA_PERSONA = re.compile(
+    r"\b(?:tengo|siento|estoy|ando|amaneci|amanecí|me\s+\w+|mi\s+(?:herida|"
+    r"cirugia|cirugía|operacion|operación|dolor|puntos|pierna|barriga)|"
+    r"mio|mía|mia|yo|conmigo)\b")
+
+
 def _sin_terceros(tn: str) -> str:
-    """Elimina las oraciones cuyo sujeto es un tercero antes de extraer."""
+    """Elimina las oraciones cuyo sujeto es un tercero, PERO conserva las que
+    llevan marca de primera persona: un cuidador narrando los síntomas del
+    paciente es lo habitual en postoperatorio."""
     frases = re.split(r"(?<=[.!?,;])\s+|\s+(?:pero|aunque|y)\s+", tn)
-    quedan = [f for f in frases if not _TERCERO.search(f)]
+    quedan = [f for f in frases
+              if not _TERCERO.search(f) or _PRIMERA_PERSONA.search(f)]
     return " ".join(quedan) if quedan else ""
 
 
@@ -141,27 +167,41 @@ def fallback_extract(text: str) -> dict:
     tn = _sin_terceros(_palabras_a_numero(_norm(text)))
     out: dict = {}
 
-    # Fiebre: número plausible (35-43) cerca de una palabra de temperatura
+    # Fiebre: número plausible (35-43) que sea REALMENTE una temperatura.
+    # Sin la exclusión temporal, "fiebre desde hace treinta y seis horas"
+    # producía fiebre_c=36 y encima enmascaraba la fiebre subjetiva → verde.
     for m in re.finditer(r"\b(3[5-9]|4[0-3])(?:[.,](\d))?\b", tn):
         val = float(f"{m.group(1)}.{m.group(2) or 0}")
-        ctx = tn[max(0, m.start() - 45):m.end() + 45]
-        if re.search(r"fiebre|temperatura|calentur|grados|termometr|febril", ctx):
+        despues = tn[m.end():m.end() + 22]
+        if re.match(rf"\s*{_NO_ES_MEDIDA}", despues):
+            continue                      # "36 horas", "38 días"
+        antes = tn[max(0, m.start() - 28):m.start()]
+        if re.search(r"fiebre|temperatura|calentur|termometr|febril|marc[oó]|tengo|"
+                     r"estaba|esta en|subi[oó]|paso de|más de|mas de", antes) or \
+                re.search(r"^\s*(?:grados|°|de fiebre|de temperatura)", despues):
             out["fiebre_c"] = max(out.get("fiebre_c", 0), val)
-    if "fiebre_c" not in out and re.search(
-            r"fiebre|calentur|destempl|febril|acalorad", tn) and not re.search(
-            r"(?:sin|no|nada de|ni)\s+(?:\w+\s+){0,2}(?:fiebre|calentur|temperatura)", tn):
+    hay_palabra_fiebre = re.search(r"fiebre|calentur|destempl|febril|acalorad", tn)
+    negada = re.search(
+        r"(?:sin|no|nada de|ni)\s+(?:\w+\s+){0,2}(?:fiebre|calentur|temperatura)", tn)
+    if hay_palabra_fiebre and not negada and "fiebre_c" not in out:
         out["fiebre_subjetiva"] = True
 
-    # Dolor 0-10: número cerca de una palabra de dolor o de escala
-    for m in re.finditer(r"\b(10|[0-9])\b", tn):
-        val = int(m.group(1))
-        ctx = tn[max(0, m.start() - 50):m.end() + 30]
-        if re.search(r"dolor|duele|molest|escala|de 0 a 10|sobre diez|adolori", ctx):
+    # Dolor 0-10: exige patrón de escala explícito, no mera cercanía. Antes,
+    # "dos pastillas cada ocho horas para el dolor" daba dolor_nrs=8 → rojo.
+    for pat in (r"(?:dolor|duele|molestia|adolorid\w*)\D{0,18}?\b(10|[0-9])\b",
+                r"\b(10|[0-9])\s*(?:de|sobre|/)\s*(?:10|diez)",
+                r"\b(10|[0-9])\b\D{0,12}?(?:de dolor|en la escala)"):
+        for m in re.finditer(pat, tn):
+            val = int(m.group(1))
+            if re.match(rf"\s*{_NO_ES_MEDIDA}", tn[m.end(1):m.end(1) + 22]):
+                continue
             out["dolor_nrs"] = max(out.get("dolor_nrs", 0), val)
 
     if re.search(r"empeor|aument|va subiendo|mas fuerte|cada vez peor", tn):
         out["dolor_empeora"] = True
-    if re.search(r"no puedo respirar|me falta el aire|me ahogo|dificultad para respirar", tn):
+    if re.search(r"no puedo respirar|me falta el (?:aire|aliento)|me ahogo|"
+                 r"dificultad para respirar|me sofoco|me fatigo|sin resuello|"
+                 r"me agito|me canso (?:mucho|al camin)", tn):
         out["disnea"] = True
     if re.search(r"\bsangr\w*|\bsangre\b|\bhemorragi\w*", tn) and not re.search(
             r"(?:sin|no|nada de|ni)\s+(?:\w+\s+){0,2}(?:sangr|sangre|hemorragi)", tn):
@@ -213,14 +253,27 @@ class SymptomState:
                   "dolor_empeora", "sangrado", "disnea", "vomito_persistente",
                   "apetito", "sueno"):
             v = ext.get(k)
-            if v is not None:
-                # la herida solo empeora en gravedad dentro de la llamada
-                if k == "herida" and self.herida in ("secrecion_purulenta", "abierta"):
-                    order = ["normal", "enrojecida_leve", "enrojecida", "hinchada",
+            if v is None:
+                continue
+            cur = getattr(self, k)
+            # MONOTONÍA CLÍNICA: dentro de una llamada el cuadro solo se agrava.
+            # Sin esto, un "no, la herida ya está normal" del turno 4 borraba la
+            # secreción purulenta del turno 2 y el caso dejaba de escalar.
+            if cur is not None:
+                if k == "herida":
+                    orden = ["normal", "enrojecida_leve", "enrojecida", "hinchada",
                              "secrecion_clara", "secrecion_purulenta", "abierta"]
-                    if v in order and order.index(v) < order.index(self.herida):
+                    if v in orden and cur in orden and orden.index(v) < orden.index(cur):
                         continue
-                setattr(self, k, v)
+                elif k == "apetito":
+                    if cur == "nulo" and v == "reducido":
+                        continue
+                elif k in ("dolor_nrs", "fiebre_c"):
+                    if float(v) < float(cur):
+                        continue
+                elif isinstance(cur, bool) and cur and not v:
+                    continue          # una bandera de alarma no se apaga sola
+            setattr(self, k, v)
         if ext.get("minimizacion"):
             self.minimizacion += 1
         if ext.get("dolor_mencionado_sin_numero"):
@@ -384,9 +437,11 @@ def quick_red_scan(text: str) -> str | None:
     señal detectada o None."""
     tn = _sin_terceros(_norm(text))   # "mi hijo bota pus" no escala esta llamada
     for kw in _QUICK_RED:
-        i = tn.find(kw)
-        if i >= 0 and not re.search(_NEGATION, tn[max(0, i - 30):i]):
-            return kw
+        # TODAS las ocurrencias: "no me sale pus… bueno, ahorita sí me salió
+        # pus amarillo" se perdía por mirar solo la primera (negada)
+        for m in re.finditer(re.escape(kw), tn):
+            if not re.search(_NEGATION, tn[max(0, m.start() - 30):m.start()]):
+                return kw
     return None
 
 

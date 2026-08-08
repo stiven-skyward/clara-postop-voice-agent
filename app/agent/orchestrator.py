@@ -50,6 +50,8 @@ class CallState:
     closed: bool = False
     rag_queries: int = 0
     texto_final: str | None = None  # transcripción corregida del último turno
+    transcript: list = field(default_factory=list)  # íntegro, sin poda (resumen)
+    checklist_pendiente: str | None = None   # dominio entregado, aún sin confirmar
 
 
 def _system_prompt(p: Patient) -> str:
@@ -71,6 +73,7 @@ def greeting(state: CallState) -> str:
     )
     state.history.append({"role": "system", "content": _system_prompt(p)})
     state.history.append({"role": "assistant", "content": text})
+    state.transcript.append(f"AGENTE: {text}")
     state.checklist_done.add("dolor")
     return text
 
@@ -88,7 +91,10 @@ def _next_checklist_hint(state: CallState) -> str | None:
         state.checklist_done.add("apetito_sueno")
     for key, desc in prompts.GUION_CHECKLIST:
         if key not in state.checklist_done:
+            # se marca de forma PROVISIONAL: si el turno se interrumpe antes de
+            # que Clara llegue a preguntarlo, se revierte (ver process_turn)
             state.checklist_done.add(key)
+            state.checklist_pendiente = key
             return desc
     return None
 
@@ -110,6 +116,17 @@ _ESCALATION_MSG = (
     "Si presenta más síntomas o se siente peor, no espere: acuda a urgencias de una vez. "
     "¿Me confirma que quedó claro?"
 )
+
+
+def _persistir_alerta(state: CallState, disparador: str) -> None:
+    p = state.patient
+    metrics.log_alert(state.call_id, {
+        "paciente": p.nombre, "paciente_id": p.paciente_id,
+        "procedimiento": p.procedimiento, "dia_postop": p.dia_postop,
+        "nivel": "rojo", "razones": state.razones,
+        "sintomas": state.symptoms.as_dict(),
+        "transcripcion_disparadora": disparador,
+    })
 
 
 _CLINICAL_HINTS = re.compile(
@@ -147,36 +164,38 @@ def process_turn(state: CallState, user_text: str,
 
     # 0) Atajo de seguridad: señal roja léxica → escalar YA (<1 s), sin esperar
     #    al LLM. La extracción corre después solo para completar el registro.
+    state.texto_final = None
+    state.checklist_pendiente = None
+    state.transcript.append(f"PACIENTE: {user_text}")
     señal = quick_red_scan(user_text)
     if señal and not state.alerted:
         state.nivel = "rojo"
         state.alerted = True
+        state.symptoms.merge(fallback_extract(user_text))
+        state.symptoms.otros.append(user_text[:160])
+        tri = evaluate(state.symptoms, p.procedimiento, p.dia_postop)
+        state.razones = list(tri.razones)
+        marca = f"Señal de alarma textual: «{señal}»"
+        if marca not in state.razones:
+            state.razones.append(marca)
+        # La alerta se PERSISTE ANTES de hablar: si el paciente interrumpe o se
+        # cae la conexión durante el yield, el generador se abandona y la alerta
+        # se habría perdido con state.alerted ya en True (nunca se reintentaría).
+        _persistir_alerta(state, user_text)
         text = _ESCALATION_MSG.format(nombre=p.nombre.split()[0])
         tm.set(triaje="rojo", escalado=True, atajo_lexico=señal)
-        yield text
         state.history.append({"role": "user", "content": user_text})
         state.history.append({"role": "assistant", "content": text})
-        try:
+        state.transcript.append(f"AGENTE: {text}")
+        yield text
+        try:   # la extracción fina solo enriquece el registro ya guardado
             ext = llm.structured(_extraction_messages(state, user_text),
                                  prompts.SCHEMA_EXTRACCION, stats=stats, max_tokens=300)
             ground = user_text + " " + (ext.get("texto_corregido") or "")
-            ext = merge_worst(sanitize_extraction(ext, ground),
-                              fallback_extract(ground))
-            state.symptoms.merge(ext)
+            state.symptoms.merge(merge_worst(sanitize_extraction(ext, ground),
+                                             fallback_extract(ground)))
         except Exception:
-            state.symptoms.merge(fallback_extract(user_text))
-            state.symptoms.otros.append(user_text[:120])
-        tri = evaluate(state.symptoms, p.procedimiento, p.dia_postop)
-        state.razones = tri.razones or [f"Señal de alarma textual: «{señal}»"]
-        if f"Señal de alarma textual: «{señal}»" not in state.razones:
-            state.razones.append(f"Señal de alarma textual: «{señal}»")
-        metrics.log_alert(state.call_id, {
-            "paciente": p.nombre, "paciente_id": p.paciente_id,
-            "procedimiento": p.procedimiento, "dia_postop": p.dia_postop,
-            "nivel": "rojo", "razones": state.razones,
-            "sintomas": state.symptoms.as_dict(),
-            "transcripcion_disparadora": user_text,
-        })
+            pass
         tm.set(tokens_in=stats.prompt_tokens, tokens_out=stats.completion_tokens,
                llm_calls=stats.calls, rag_queries=0)
         return
@@ -190,7 +209,9 @@ def process_turn(state: CallState, user_text: str,
             ext = llm.structured(_extraction_messages(state, user_text),
                                  prompts.SCHEMA_EXTRACCION, stats=stats, max_tokens=300)
         except Exception:
-            ext = {"otros": [], "pregunta": None}
+            # conservar el habla cruda: las reglas de texto libre (TVP,
+            # red flags) leen state.symptoms.otros
+            ext = {"otros": [user_text[:200]], "pregunta": None}
     corregido = (ext.get("texto_corregido") or "").strip()
     if corregido and corregido.lower() != user_text.strip().lower():
         state.texto_final = corregido
@@ -208,8 +229,14 @@ def process_turn(state: CallState, user_text: str,
     tri: TriageResult = evaluate(state.symptoms, p.procedimiento, p.dia_postop)
     prev = state.nivel
     state.nivel = combine(state.nivel, tri.nivel)
+    nuevas = [r for r in tri.razones if r not in state.razones]
     if state.nivel != prev or not state.razones:
-        state.razones = tri.razones
+        state.razones = list(tri.razones)
+    elif nuevas and state.nivel == "rojo":
+        # un SEGUNDO motivo rojo en la misma llamada debe llegar a quien
+        # devuelve la llamada; antes solo quedaba registrado el primero
+        state.razones.extend(nuevas)
+        _persistir_alerta(state, user_text)
     tm.set(triaje=state.nivel, extraccion=ext)
 
     # 3) Escalamiento inmediato si pasó a rojo
@@ -294,8 +321,16 @@ def process_turn(state: CallState, user_text: str,
         # consolidado igual (con lo parcial), o el siguiente turno no sabría
         # qué dijo el paciente ni qué alcanzó a responder el agente
         reply = "".join(parts)
+        # si el turno se cortó sin respuesta, el dominio del guion vuelve a la
+        # cola: de lo contrario nunca se volvería a preguntar
+        if state.checklist_pendiente and len(reply) < 15:
+            state.checklist_done.discard(state.checklist_pendiente)
+        state.checklist_pendiente = None
         state.history.append({"role": "user", "content": user_text_final})
         state.history.append({"role": "assistant", "content": reply or "(interrumpido)"})
+        if user_text_final != user_text and state.transcript:
+            state.transcript[-1] = f"PACIENTE: {user_text_final}"
+        state.transcript.append(f"AGENTE: {reply or '(interrumpido)'}")
     # poda de historial: en voz el contexto clínico vive en SymptomState, no
     # hace falta arrastrar toda la conversación (prefill caro en CPU)
     if len(state.history) > 15:
@@ -310,9 +345,8 @@ def close_call(state: CallState) -> dict:
     """Genera y persiste el resumen estructurado de la llamada."""
     if state.closed:
         return {}
-    state.closed = True
     stats = llm.LLMStats()
-    transcript = "\n".join(
+    transcript = "\n".join(state.transcript) or "\n".join(
         f"{'AGENTE' if m['role'] == 'assistant' else 'PACIENTE'}: {m['content']}"
         for m in state.history if m["role"] in ("user", "assistant"))
     p = state.patient
@@ -339,4 +373,5 @@ def close_call(state: CallState) -> dict:
         **res,
     }
     metrics.log_call_summary(state.call_id, summary)
+    state.closed = True   # solo tras persistir: si falla, se puede reintentar
     return summary
