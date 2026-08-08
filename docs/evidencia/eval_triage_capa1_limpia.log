@@ -16,7 +16,7 @@ Evaluando 57 casos (12 rojos, 25 amarillos, 20 verdes) capa=capa1_limpia
   caso_tray_pac_42_00030_14: esperado=rojo predicho=rojo ✓
   caso_tray_pac_42_00030_7: esperado=rojo predicho=rojo ✓
   caso_tray_pac_42_00000_3: esperado=amarillo predicho=amarillo ✓
-  caso_tray_pac_42_00001_3: esperado=amarillo predicho=amarillo ✓
+  caso_tray_pac_42_00001_3: esperado=amarillo predicho=rojo FP
   caso_tray_pac_42_00001_7: esperado=amarillo predicho=amarillo ✓
   caso_tray_pac_42_00003_3: esperado=amarillo predicho=rojo FP
   caso_tray_pac_42_00003_7: esperado=amarillo predicho=rojo FP
@@ -27,7 +27,7 @@ Evaluando 57 casos (12 rojos, 25 amarillos, 20 verdes) capa=capa1_limpia
   caso_tray_pac_42_00012_7: esperado=amarillo predicho=rojo FP
   caso_tray_pac_42_00013_3: esperado=amarillo predicho=rojo FP
   caso_tray_pac_42_00013_7: esperado=amarillo predicho=rojo FP
-  caso_tray_pac_42_00015_3: esperado=amarillo predicho=amarillo ✓
+  caso_tray_pac_42_00015_3: esperado=amarillo predicho=rojo FP
   caso_tray_pac_42_00016_1: esperado=amarillo predicho=amarillo ✓
   caso_tray_pac_42_00019_1: esperado=amarillo predicho=rojo FP
   caso_tray_pac_42_00019_3: esperado=amarillo predicho=rojo FP
@@ -40,22 +40,22 @@ Evaluando 57 casos (12 rojos, 25 amarillos, 20 verdes) capa=capa1_limpia
   caso_tray_pac_42_00035_7: esperado=amarillo predicho=rojo FP
   caso_tray_pac_42_00038_3: esperado=amarillo predicho=rojo FP
   caso_tray_pac_42_00038_7: esperado=amarillo predicho=rojo FP
-  caso_tray_pac_42_00000_1: esperado=verde predicho=verde ✓
+  caso_tray_pac_42_00000_1: esperado=verde predicho=amarillo FP
   caso_tray_pac_42_00000_14: esperado=verde predicho=rojo FP
   caso_tray_pac_42_00000_7: esperado=verde predicho=rojo FP
   caso_tray_pac_42_00001_1: esperado=verde predicho=amarillo FP
-  caso_tray_pac_42_00001_14: esperado=verde predicho=verde ✓
+  caso_tray_pac_42_00001_14: esperado=verde predicho=amarillo FP
   caso_tray_pac_42_00002_1: esperado=verde predicho=amarillo FP
   caso_tray_pac_42_00002_14: esperado=verde predicho=verde ✓
   caso_tray_pac_42_00002_3: esperado=verde predicho=rojo FP
   caso_tray_pac_42_00002_7: esperado=verde predicho=rojo FP
   caso_tray_pac_42_00003_1: esperado=verde predicho=verde ✓
-  caso_tray_pac_42_00003_14: esperado=verde predicho=amarillo FP
-  caso_tray_pac_42_00004_1: esperado=verde predicho=amarillo FP
-  caso_tray_pac_42_00004_14: esperado=verde predicho=verde ✓
+  caso_tray_pac_42_00003_14: esperado=verde predicho=rojo FP
+  caso_tray_pac_42_00004_1: esperado=verde predicho=rojo FP
+  caso_tray_pac_42_00004_14: esperado=verde predicho=amarillo FP
   caso_tray_pac_42_00004_3: esperado=verde predicho=rojo FP
-  caso_tray_pac_42_00004_7: esperado=verde predicho=verde ✓
-  caso_tray_pac_42_00005_1: esperado=verde predicho=amarillo FP
+  caso_tray_pac_42_00004_7: esperado=verde predicho=amarillo FP
+  caso_tray_pac_42_00005_1: esperado=verde predicho=rojo FP
   caso_tray_pac_42_00005_14: esperado=verde predicho=verde ✓
   caso_tray_pac_42_00005_3: esperado=verde predicho=verde ✓
   caso_tray_pac_42_00005_7: esperado=verde predicho=verde ✓
@@ -63,10 +63,10 @@ Evaluando 57 casos (12 rojos, 25 amarillos, 20 verdes) capa=capa1_limpia
 
 Matriz (filas=esperado, cols=predicho):
                verde  amarillo      rojo
-     verde         9         6         5
-  amarillo         0         7        18
+     verde         5         7         8
+  amarillo         0         5        20
       rojo         0         0        12
 
 Falsos negativos (subestimación): 0/57
 Recall rojo: 12/12
-Tiempo: 25.9 min
+Tiempo: 31.2 min

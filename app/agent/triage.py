@@ -415,8 +415,14 @@ def evaluate(s: SymptomState, procedimiento: str = "", dia_postop: int = 1) -> T
     if s.sueno == "alterado":
         blandas.append("sueño alterado")
     if s.dolor_mencionado_sin_numero and s.dolor_nrs is None:
-        blandas.append("dolor referido sin cuantificar")
+        # Siempre se INDAGA (pedir el número de 0 a 10), pero solo cuenta como
+        # señal blanda si además minimiza activamente: un paciente que sencilla-
+        # mente no dio un número no es sospechoso; uno que evade el número
+        # mientras repite "uno aguanta, no es nada" sí lo es. Medido contra el
+        # dataset: sin esta condición, 7 de 20 casos verdes escalaban a rojo.
         faltantes.append("intensidad del dolor de 0 a 10")
+        if s.minimizacion >= 1:
+            blandas.append("dolor evadido sin cuantificar (paciente que minimiza)")
 
     # Calibración final (barrido contra el dataset: 0 falsos negativos,
     # recall rojo 12/12): ≥3 dominios blandos degradados a la vez → rojo,
