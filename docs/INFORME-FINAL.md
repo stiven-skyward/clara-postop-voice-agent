@@ -143,7 +143,42 @@ Ver tabla del README (§Métricas) — se generan de `data/logs/*.jsonl`, con
 × tarifas API públicas (Groq Llama-3.3-70B y Gemini Flash) como extrapolación,
 $0 real en local.
 
-## 6. Seguridad y comportamiento adverso
+## 6. Auditoría de producción (evidencia de proceso)
+
+Antes de dar por cerrada la solución se ejecutó una auditoría con **tres revisiones
+de código independientes** (pipeline de voz y concurrencia · RAG y seguridad web ·
+lógica clínica) más una **batería dinámica** contra el sistema en marcha: llamadas
+concurrentes, entradas malformadas, ruido puro, desconexiones a mitad de turno,
+inyección de prompts y simulación de caída del LLM. Se corrigieron **27 defectos**.
+Los de mayor impacto:
+
+| # | Defecto | Por qué importaba |
+|---|---|---|
+| 1 | Con `llama-server` caído, "39 de fiebre y dolor 9" se clasificaba **verde** | Falso negativo catastrófico. Se añadió `fallback_extract`, extractor determinista por reglas (entiende números en letras) que corre **siempre** y se funde con `merge_worst` quedándose con lo más grave |
+| 2 | La alerta roja se persistía **después** de hablar | Un barge-in durante el escalamiento abandonaba el generador: la alerta nunca llegaba a `alertas.jsonl` y `alerted=True` impedía reintentarla. Ahora se persiste antes del primer `yield` |
+| 3 | El estado clínico no era monotónico | "No, la herida ya está normal" en el turno 4 borraba la secreción purulenta del turno 2 y el caso dejaba de escalar. `SymptomState.merge` ahora solo agrava |
+| 4 | `count_tokens` capado a 512 por la truncación del tokenizer | Las secciones padre nunca se partían: 22 % del corpus excedía el límite, con una de **34.348 tokens** que truncaba el prompt en silencio. Corregido con tokenizer separado y partido en cascada (párrafos→líneas→oraciones→palabras→caracteres) |
+| 5 | Números temporales y posológicos fingían síntomas | "Fiebre desde hace **36** horas" → `fiebre_c=36` que además enmascaraba la fiebre real → verde; "2 pastillas cada **8** horas" → dolor 8 → rojo falso |
+| 6 | Campos numéricos sin anclaje léxico | Ante una inyección de prompt el modelo inventaba `dolor_nrs: 10` y escalaba. Ahora un número solo se acepta si el texto habla de ese síntoma |
+| 7 | El turno del paciente se descartaba en barge-in | Si hablaba mientras Clara respondía, su audio se tiraba sin aviso. Ahora se encola |
+| 8 | Buffer del VAD sin límite | Ruido continuo podía crecer indefinidamente y bloquear a todas las llamadas con el lock global de whisper. Corte duro a 30 s |
+| 9 | Remuestreo del micrófono perdía la fase entre bloques | Con micrófonos a 44,1 kHz el audio llegaba ~2 % desalineado, degradando la transcripción |
+| 10 | Síntomas de terceros escalaban la llamada | "Mi hijo tiene 39 de fiebre" activaba el rojo del paciente. Se filtran, conservando la narración del cuidador ("mi hija dice que **tengo** 39") |
+| 11 | XSS almacenado y path traversal en la consola | Un PDF llamado `<script>…</script>.pdf` ejecutaba JS en `/admin` |
+| 12 | Conexión SQLite única entre hilos | Lecturas sucias y `cannot commit` con llamada + ingesta simultáneas. Ahora una conexión por hilo con WAL |
+
+Otros: negaciones evaluadas en todas las ocurrencias ("no me sale pus… ahorita **sí**
+me salió"), dehiscencia y disnea en habla coloquial colombiana ("se me reventaron los
+puntos", "me falta el aliento"), segundo motivo rojo registrado en la alerta,
+transcripción íntegra para el resumen (la poda del historial borraba el turno
+crítico), guion clínico revertible si se interrumpe, `repair_asr` con diccionario
+español de 66.841 palabras (bajó de 15 % a **0 %** de correcciones erróneas sobre
+los 960 turnos del dataset), y validación de todas las entradas del WebSocket.
+
+Reproducible: `scripts/stress_test.py` (concurrencia y casos límite),
+`scripts/eval_triage.py` (triaje), `scripts/test_conocimiento_vivo.py` (G5).
+
+## 7. Seguridad y comportamiento adverso
 
 - Inyección de prompt: reglas inquebrantables en system prompt + prueba adversaria
   (`scripts/`): el agente rechaza "ignora tus instrucciones" y redirige a su misión.
