@@ -118,6 +118,31 @@ _ESCALATION_MSG = (
 )
 
 
+# frases con las que el modelo de extracción "contesta" en vez de corregir
+_VOZ_ASISTENTE = re.compile(
+    r"no puedo (?:proporcionar|ayudar|darte|responder)|te recomiendo|le recomiendo|"
+    r"lo siento|como asistente|consulta a (?:un|tu)|profesional de la salud|"
+    r"¿hay algo más|estoy aquí para", re.IGNORECASE)
+
+
+def _validar_correccion(corregido: str | None, original: str) -> str | None:
+    """Acepta la corrección del ASR solo si es plausible.
+
+    El modelo de extracción, ante una inyección de prompt, a veces RESPONDE
+    dentro de `texto_corregido`; sin este filtro esa respuesta sustituía a la
+    frase del paciente en el historial, el resumen y la pantalla.
+    """
+    c = (corregido or "").strip()
+    o = original.strip()
+    if not c or c.lower() == o.lower():
+        return None
+    if len(c) > max(60, len(o) * 1.8) or len(c) < len(o) * 0.4:
+        return None                       # reescritura desproporcionada
+    if _VOZ_ASISTENTE.search(c):
+        return None                       # es el modelo hablando, no el paciente
+    return c
+
+
 def _persistir_alerta(state: CallState, disparador: str) -> None:
     p = state.patient
     metrics.log_alert(state.call_id, {
@@ -212,8 +237,8 @@ def process_turn(state: CallState, user_text: str,
             # conservar el habla cruda: las reglas de texto libre (TVP,
             # red flags) leen state.symptoms.otros
             ext = {"otros": [user_text[:200]], "pregunta": None}
-    corregido = (ext.get("texto_corregido") or "").strip()
-    if corregido and corregido.lower() != user_text.strip().lower():
+    corregido = _validar_correccion(ext.get("texto_corregido"), user_text) or ""
+    if corregido:
         state.texto_final = corregido
     # el anclaje valida contra el texto original MÁS el corregido: una señal
     # legítima recuperada por la corrección no debe descartarse

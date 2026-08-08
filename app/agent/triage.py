@@ -80,6 +80,18 @@ def sanitize_extraction(ext: dict, user_text: str) -> dict:
     for field_name, pattern in _GROUNDING_ENUM.items():
         if out.get(field_name) and not re.search(pattern, tn):
             out.pop(field_name)
+    # anclaje de los campos NUMÉRICOS: el modelo pequeño llega a inventar
+    # "dolor_nrs: 10" en textos que no hablan de dolor (se observó con
+    # inyecciones de prompt). Exigimos palabra del dominio + un número.
+    tnum = _palabras_a_numero(tn)
+    if out.get("dolor_nrs") is not None and not (
+            re.search(r"dolor|duele|molest|adolori|escala|punzad|arde", tn)
+            and re.search(r"\d", tnum)):
+        out.pop("dolor_nrs")
+    if out.get("fiebre_c") is not None and not (
+            re.search(r"fiebre|temperatur|calentur|grados|termometr|febril", tn)
+            and re.search(r"\d", tnum)):
+        out.pop("fiebre_c")
     # el paciente habla del dolor pero no lo cuantifica → señal blanda de evasión
     if out.get("dolor_nrs") is None and re.search(r"dolor|duele|molest|adolori", tn):
         out["dolor_mencionado_sin_numero"] = True
