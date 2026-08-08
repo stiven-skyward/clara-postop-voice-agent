@@ -102,7 +102,7 @@ def _next_checklist_hint(state: CallState) -> str | None:
 def _format_sources(sources: list[Source]) -> str:
     blocks = []
     for s in sources:
-        body = s.ventana(1200)  # ventana centrada en lo que casó; prefill acotado
+        body = s.ventana(700)   # ventana centrada en lo que casó; prefill acotado
         blocks.append(f"[{s.n}] «{s.titulo}» — sección: {s.seccion} "
                       f"(págs. {s.pagina_ini}-{s.pagina_fin})\n{body}")
     return "\n\n".join(blocks)
@@ -141,6 +141,10 @@ def _validar_correccion(corregido: str | None, original: str) -> str | None:
     if _VOZ_ASISTENTE.search(c):
         return None                       # es el modelo hablando, no el paciente
     return c
+
+
+# frase de espera mientras se consulta el corpus (pre-sintetizada en TTS)
+_ESPERA_RAG = "Permítame revisar sus indicaciones un momento. "
 
 
 def _persistir_alerta(state: CallState, disparador: str) -> None:
@@ -286,6 +290,10 @@ def process_turn(state: CallState, user_text: str,
     sources: list[Source] = []
     pregunta = ext.get("pregunta")
     if pregunta:
+        # Relleno conversacional: consultar el corpus y prefill-ear la respuesta
+        # cuesta segundos en CPU. En vez de dejar un silencio muerto, Clara avisa
+        # que está consultando (frase pre-sintetizada, suena de inmediato).
+        yield _ESPERA_RAG
         sources = get_searcher().search(pregunta, escenario=p.escenario)
         state.rag_queries += 1
         for s in sources:
@@ -358,8 +366,10 @@ def process_turn(state: CallState, user_text: str,
         state.transcript.append(f"AGENTE: {reply or '(interrumpido)'}")
     # poda de historial: en voz el contexto clínico vive en SymptomState, no
     # hace falta arrastrar toda la conversación (prefill caro en CPU)
-    if len(state.history) > 15:
-        state.history = state.history[:1] + state.history[-12:]
+    # en voz el contexto clínico vive en SymptomState; arrastrar más historia
+    # solo encarece el prefill (medido: ~100 tok/s en 4 núcleos)
+    if len(state.history) > 9:
+        state.history = state.history[:1] + state.history[-8:]
 
     tm.set(tokens_in=stats.prompt_tokens, tokens_out=stats.completion_tokens,
            llm_calls=stats.calls, rag_queries=1 if pregunta else 0,

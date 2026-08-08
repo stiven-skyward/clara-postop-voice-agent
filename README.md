@@ -106,37 +106,52 @@ Se loggean automáticamente por turno en `data/logs/turnos.jsonl` y se agregan e
 `GET /api/metrics` (visibles en la consola /admin).
 
 Medidas en CPU restringida a **4 núcleos** (`taskset -c 0-3`, hilos LLM/STT = 4),
-perfil `principal` (whisper small + Kokoro), sobre 4 llamadas E2E sintéticas
-(10 turnos: casos rojo con escalamiento y verde con pregunta al RAG):
+perfil `principal` (whisper small + Kokoro), sobre 6 llamadas E2E sintéticas
+(15 turnos: casos rojo con escalamiento y verde con consulta al RAG):
 
 | Métrica | Valor medido |
 |---|---|
-| Latencia P50 (fin de habla → primer audio) | **11.8 s** |
-| Latencia P95 | **28.2 s** (turno RAG con caché fría; caliente: ~9 s) |
-| Tokens por turno (entrada / salida, prom.) | 1 212 / 75 |
-| Tokens por llamada (prom.) | 3 218 |
-| Invocaciones LLM por turno (prom.) | 1.6 (extracción condicionada + respuesta; el atajo rojo léxico responde sin LLM) |
-| Consultas RAG por llamada (prom.) | 0.5 (solo cuando el paciente pregunta) |
-| Costo por llamada | **$0 real (local)** · extrapolado a API pública: ~$0.002 (Groq Llama-3.3-70B) / ~$0.0014 (Gemini Flash) — tokens medidos × tarifa por 1M |
+| Latencia P50 (fin de habla → primer audio) | **12,0 s** |
+| Latencia P95 | **15,0 s** |
+| Tokens por turno (entrada / salida, prom.) | 1 420 / 126 |
+| Tokens por llamada (prom.) | 3 864 |
+| Invocaciones LLM por turno (prom.) | 1,6 (extracción condicionada + respuesta; el atajo rojo léxico responde sin LLM) |
+| Consultas RAG por llamada (prom.) | 1,0 (solo cuando el paciente pregunta) |
+| Costo por llamada | **$0 real (local)** · extrapolado a API pública: ~$0,0023 (Groq Llama-3.3-70B) / ~$0,0019 (Gemini Flash) |
 
-Notas de honestidad: los valores se midieron en una máquina de desarrollo que además
-ejecutaba un entrenamiento pesado ajeno al proyecto (condiciones pesimistas); el
-desglose por turno está en `data/logs/turnos.jsonl` y se agrega en `GET /api/metrics`.
-En el escalamiento rojo por señal léxica el primer audio llega en **~7 s** (STT ~4 s +
-frase pre-sintetizada). El perfil `ligero` (whisper base + Piper) recorta ~3 s
-adicionales de STT/TTS por turno.
+Notas de honestidad y contexto:
+
+- **La latencia la domina el prefill del LLM en CPU** (~100 tok/s con 4 núcleos).
+  Los escalamientos rojos por señal léxica responden en **~7 s** (STT ~4 s + frase
+  pre-sintetizada, sin pasar por el modelo).
+- **Durante los silencios el agente no calla**: al consultar el corpus reproduce
+  de inmediato «Permítame revisar sus indicaciones un momento» (pre-sintetizada),
+  de modo que el turno con RAG suena al instante aunque la respuesta tarde. Sin
+  esa cobertura el P95 era de 44 s; con ella, 15 s.
+- Las mediciones se tomaron en una máquina que además ejecutaba un entrenamiento
+  ajeno al proyecto (condiciones pesimistas), y con el LLM y la app compitiendo
+  por los mismos 4 núcleos —igual que haría el equipo de despliegue objetivo—.
+- El perfil `ligero` (`POSTOP_PROFILE=ligero`: whisper base + Piper) recorta
+  ~3 s por turno a cambio de algo de precisión en el reconocimiento.
+- Desglose por turno en `data/logs/turnos.jsonl`; agregado en `GET /api/metrics`
+  y visible en la consola `/admin`.
 
 **Lógica de decisión (evaluada contra el dataset del reto, capa limpia, 57 casos:
 12 rojos + 25 amarillos + 20 verdes):**
 
 | Métrica de triaje | Resultado |
 |---|---|
-| Falsos negativos (subestimación de nivel) | **0 / 57** |
-| Recall de casos rojos | **12 / 12** |
-| Matriz completa | verde: 12-5-3 · amarillo: 0-7-18 · rojo: 0-0-12 (filas=real, cols=verde/amarillo/rojo) |
+| Falsos negativos, capa limpia | **0 / 57** |
+| Falsos negativos, capa ruidosa (evasivas, datos faltantes, interrupciones de familiares) | **0 / 57** |
+| Recall de casos rojos | **12 / 12** en ambas capas |
+| Matriz, capa limpia | verde: 5-7-8 · amarillo: 0-5-20 · rojo: 0-0-12 (filas=real, cols=verde/amarillo/rojo) |
+| Matriz, capa ruidosa | verde: 4-7-9 · amarillo: 0-8-17 · rojo: 0-0-12 |
 
 Calibración deliberadamente sensible (asimetría clínica del reto): el costo del
-0 % de subestimación es sobre-escalamiento en casos ambiguos. Detalle y método en
+0 % de subestimación es sobre-escalamiento en casos ambiguos. La capa ruidosa es
+la prueba dura —el paciente evade, minimiza («un poquito molesto, uno aguanta»
+con dolor real de 9/10) y un familiar interrumpe—; el agente mantiene el 100 % de
+recall en rojos. Detalle y método en
 [`docs/INFORME-FINAL.md`](docs/INFORME-FINAL.md) §2; reproducible con
 `scripts/eval_triage.py`.
 

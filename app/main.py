@@ -46,6 +46,7 @@ def _warm_tts_phrases() -> None:
     """Pre-sintetiza las frases fijas críticas (escalamiento y aclaraciones)."""
     try:
         tts.synthesize_cached("Por lo que me cuenta, esto lo debe revisar el equipo médico hoy mismo.")
+        tts.synthesize_cached("Permítame revisar sus indicaciones un momento.")
         for f in _CLARIFY_WARM:
             tts.synthesize_cached(f)
     except Exception:
@@ -323,7 +324,8 @@ async def ws_call(ws: WebSocket):
             reply_parts.append(tok)
             for sent in streamer.push(tok):
                 # la 1ª oración del escalamiento rojo está pre-sintetizada
-                speak(sent, tm, cached=sent.startswith("Por lo que me cuenta"))
+                speak(sent, tm, cached=sent.startswith(("Por lo que me cuenta",
+                                                        "Permítame revisar")))
         rest = streamer.flush()
         if rest and not cancel.is_set():
             speak(rest, tm)
