@@ -121,7 +121,7 @@ class SymptomState:
             if v is not None:
                 # la herida solo empeora en gravedad dentro de la llamada
                 if k == "herida" and self.herida in ("secrecion_purulenta", "abierta"):
-                    order = ["normal", "enrojecida_leve", "enrojecida",
+                    order = ["normal", "enrojecida_leve", "enrojecida", "hinchada",
                              "secrecion_clara", "secrecion_purulenta", "abierta"]
                     if v in order and order.index(v) < order.index(self.herida):
                         continue
@@ -196,6 +196,8 @@ def evaluate(s: SymptomState, procedimiento: str = "", dia_postop: int = 1) -> T
         razones_amarillo.append("Secreción clara en la herida")
     elif s.herida == "enrojecida":
         razones_amarillo.append("Enrojecimiento notorio de la herida")
+    elif s.herida == "hinchada":
+        razones_amarillo.append("Hinchazón alrededor de la herida")
     # enrojecida_leve NO sube el nivel por sí sola: cuenta como señal blanda
 
     # --- Signos sistémicos ---
@@ -220,7 +222,7 @@ def evaluate(s: SymptomState, procedimiento: str = "", dia_postop: int = 1) -> T
     # combinación febrícula (38.0-38.4) + herida alterada leve refuerza el
     # amarillo (revisión el mismo día), no salta a rojo.
     fiebre_alguna = (s.fiebre_c is not None and s.fiebre_c >= 38.0) or s.fiebre_subjetiva
-    if fiebre_alguna and s.herida in ("enrojecida", "secrecion_clara"):
+    if fiebre_alguna and s.herida in ("enrojecida", "hinchada", "secrecion_clara"):
         razones_amarillo.append("Fiebre/febrícula + herida alterada: vigilar posible infección del sitio quirúrgico")
 
     # DVT tras reemplazo articular: pantorrilla es rojo, no amarillo
@@ -235,7 +237,7 @@ def evaluate(s: SymptomState, procedimiento: str = "", dia_postop: int = 1) -> T
     # dominios es en sí misma una señal clínica (arquetipo minimizador del
     # dataset: trayectoria dolor 9 relatada como "un poquito molesto").
     blandas: list[str] = []
-    if s.herida in ("enrojecida_leve", "enrojecida", "secrecion_clara"):
+    if s.herida in ("enrojecida_leve", "enrojecida", "hinchada", "secrecion_clara"):
         blandas.append("herida alterada (aunque la describe leve)")
     # el termómetro manda: sensación febril solo cuenta si NO hay medición normal
     if (s.fiebre_subjetiva and s.fiebre_c is None) or \

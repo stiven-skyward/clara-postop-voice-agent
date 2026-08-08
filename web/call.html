@@ -111,6 +111,10 @@ $('btnStart').onclick = async () => {
       const m = JSON.parse(ev.data);
       if(m.type==='audio_start'){ srOut = m.sr; }
       else if(m.type==='transcript'){ log('Usted', m.text); $('status').textContent='Clara está respondiendo…'; }
+      else if(m.type==='transcript_fix'){
+        const bs = document.querySelectorAll('.patient .bubble');
+        if(bs.length) bs[bs.length-1].textContent = m.text;
+      }
       else if(m.type==='agent_text'){ log('Clara', m.text);
         $('triaje').className = 'pill ' + m.triaje; $('triaje').textContent = m.triaje + (m.alerta ? ' · ALERTA' : ''); }
       else if(m.type==='turn_end'){ $('status').textContent='en llamada — hable con naturalidad'; }

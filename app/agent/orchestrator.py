@@ -48,6 +48,7 @@ class CallState:
     alerted: bool = False
     closed: bool = False
     rag_queries: int = 0
+    texto_final: str | None = None  # transcripción corregida del último turno
 
 
 def _system_prompt(p: Patient) -> str:
@@ -121,6 +122,21 @@ def _worth_extracting(text: str) -> bool:
     return len(text) > 80 or bool(_CLINICAL_HINTS.search(text))
 
 
+def _extraction_messages(state: CallState, user_text: str) -> list[dict]:
+    """La última pregunta del agente da el contexto para interpretar
+    respuestas cortas o mal transcritas ("sin chasón" tras preguntar por
+    hinchazón = "sí, hinchazón")."""
+    last_q = ""
+    for m in reversed(state.history):
+        if m["role"] == "assistant":
+            last_q = m["content"][:220]
+            break
+    content = (f"El AGENTE preguntó: «{last_q}»\n"
+               f"El PACIENTE respondió (transcripción telefónica): «{user_text}»")
+    return [{"role": "system", "content": prompts.SYSTEM_EXTRACCION},
+            {"role": "user", "content": content}]
+
+
 def process_turn(state: CallState, user_text: str,
                  tm: metrics.TurnMetrics) -> Iterator[str]:
     """Procesa un turno del paciente. Genera el texto de respuesta en streaming."""
@@ -140,11 +156,10 @@ def process_turn(state: CallState, user_text: str,
         state.history.append({"role": "user", "content": user_text})
         state.history.append({"role": "assistant", "content": text})
         try:
-            ext = llm.structured(
-                [{"role": "system", "content": prompts.SYSTEM_EXTRACCION},
-                 {"role": "user", "content": user_text}],
-                prompts.SCHEMA_EXTRACCION, stats=stats, max_tokens=260)
-            state.symptoms.merge(sanitize_extraction(ext, user_text))
+            ext = llm.structured(_extraction_messages(state, user_text),
+                                 prompts.SCHEMA_EXTRACCION, stats=stats, max_tokens=300)
+            ground = user_text + " " + (ext.get("texto_corregido") or "")
+            state.symptoms.merge(sanitize_extraction(ext, ground))
         except Exception:
             state.symptoms.otros.append(user_text[:120])
         tri = evaluate(state.symptoms, p.procedimiento, p.dia_postop)
@@ -165,17 +180,21 @@ def process_turn(state: CallState, user_text: str,
     # 1) Extracción estructurada (solo si el turno puede contener información
     #    clínica o una pregunta; un "sí señora" corto no paga LLM)
     ext = {}
+    state.texto_final = None
     if _worth_extracting(user_text):
         try:
-            ext = llm.structured(
-                [{"role": "system", "content": prompts.SYSTEM_EXTRACCION},
-                 {"role": "user", "content": user_text}],
-                prompts.SCHEMA_EXTRACCION, stats=stats, max_tokens=260,
-            )
+            ext = llm.structured(_extraction_messages(state, user_text),
+                                 prompts.SCHEMA_EXTRACCION, stats=stats, max_tokens=300)
         except Exception:
             ext = {"otros": [], "pregunta": None}
-    ext = sanitize_extraction(ext, user_text)
+    corregido = (ext.get("texto_corregido") or "").strip()
+    if corregido and corregido.lower() != user_text.strip().lower():
+        state.texto_final = corregido
+    # el anclaje valida contra el texto original MÁS el corregido: una señal
+    # legítima recuperada por la corrección no debe descartarse
+    ext = sanitize_extraction(ext, user_text + " " + corregido)
     state.symptoms.merge(ext)
+    user_text_final = corregido or user_text
 
     # 2) Triaje determinista (solo sube)
     tri: TriageResult = evaluate(state.symptoms, p.procedimiento, p.dia_postop)
@@ -220,7 +239,7 @@ def process_turn(state: CallState, user_text: str,
     if tri.faltantes:
         guidance.append("Antes de nada, indaga con tacto: " + "; ".join(tri.faltantes) + ".")
     if state.nivel == "amarillo" and prev == "verde":
-        guidance.append("Hay síntomas que vigilar: dilo con calma, sin alarmar ni restar importancia, y anuncia que el equipo de enfermería lo contactará hoy.")
+        guidance.append("Hay síntomas que vigilar: reconócelo con calma. PROHIBIDO decir que es normal o quitarle importancia. Di que es algo que conviene revisar y que el equipo de enfermería lo contactará hoy mismo.")
     if pregunta and sources:
         guidance.append("Responde la duda usando SOLO las fuentes, citando [n].")
     elif pregunta and not sources:
@@ -263,7 +282,7 @@ def process_turn(state: CallState, user_text: str,
         yield tok
     reply = "".join(parts)
 
-    state.history.append({"role": "user", "content": user_text})
+    state.history.append({"role": "user", "content": user_text_final})
     state.history.append({"role": "assistant", "content": reply})
     # poda de historial: en voz el contexto clínico vive en SymptomState, no
     # hace falta arrastrar toda la conversación (prefill caro en CPU)

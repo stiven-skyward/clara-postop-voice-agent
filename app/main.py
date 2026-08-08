@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from app import config, llm, metrics, stt, tts
 from app.agent.orchestrator import CallState, Patient, close_call, greeting, process_turn
 from app.rag import ingest
+from app.rag.lexicon import repair_asr
 from app.rag.store import get_store
 from app.vad import StreamingVAD
 
@@ -243,8 +244,15 @@ async def ws_call(ws: WebSocket):
         assert state is not None
         tm = metrics.TurnMetrics(state.call_id, state.turno + 1)
         tm.mark("speech_end")
-        text = stt.transcribe(audio)
+        # la última pregunta de Clara sesga el decodificador de whisper
+        last_q = next((m["content"] for m in reversed(state.history)
+                       if m["role"] == "assistant"), None)
+        text = stt.transcribe(audio, context=last_q)
         tm.mark("stt_done")
+        if text:
+            text, reparaciones = repair_asr(text)
+            if reparaciones:
+                tm.set(asr_reparado=reparaciones)
         if not text:
             # reparación conversacional: nunca dejar silencio muerto
             n = min(unclear["n"], len(_CLARIFY) - 1)
@@ -288,6 +296,9 @@ async def ws_call(ws: WebSocket):
         if rest and not cancel.is_set():
             speak(rest, tm)
         tm.mark("turn_done")
+        if state.texto_final:
+            # el LLM corrigió la transcripción: actualizar lo mostrado
+            send({"type": "transcript_fix", "text": state.texto_final})
         send({"type": "agent_text", "text": "".join(reply_parts),
               "triaje": state.nivel, "alerta": state.alerted})
         tm.save()

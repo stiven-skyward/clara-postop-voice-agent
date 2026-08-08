@@ -37,17 +37,25 @@ def _enhance(audio: np.ndarray) -> np.ndarray:
     return np.clip(audio * (0.9 / peak), -1.0, 1.0)
 
 
-def transcribe(audio_f32_16k: np.ndarray) -> str:
-    """Transcribe audio mono float32 @16 kHz a texto en español."""
+def transcribe(audio_f32_16k: np.ndarray, context: str | None = None) -> str:
+    """Transcribe audio mono float32 @16 kHz a texto en español.
+
+    `context` (la última pregunta del agente) sesga el decodificador de whisper
+    hacia el vocabulario esperado: si se preguntó por "hinchazón", una respuesta
+    corta y confusa se resuelve hacia esos términos.
+    """
     if audio_f32_16k.size < 1600:  # <0.1 s
         return ""
     audio_f32_16k = _enhance(audio_f32_16k)
+    prompt = config.STT_PROMPT
+    if context:
+        prompt = f"{prompt} Agente: {context[:160]}"
     m = get_model()
     with _lock:  # whisper.cpp context no es thread-safe
         segments = m.transcribe(
             audio_f32_16k,
             language="es",
-            initial_prompt=config.STT_PROMPT,
+            initial_prompt=prompt,
             translate=False,
         )
     text = " ".join(s.text.strip() for s in segments).strip()

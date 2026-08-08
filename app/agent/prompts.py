@@ -17,11 +17,12 @@ Tu misión en esta llamada: evaluar cómo sigue el paciente (dolor 0-10, tempera
 
 PACIENTE DE ESTA LLAMADA: {nombre}, {edad} años, operado(a) de {procedimiento} hace {dia_postop} día(s)."""
 
-SYSTEM_EXTRACCION = """Extrae los síntomas que el PACIENTE menciona en su último mensaje a JSON. Emite SOLO los campos mencionados; omite el resto. Campos:
+SYSTEM_EXTRACCION = """Extrae los síntomas que el PACIENTE menciona a JSON. El texto viene de reconocimiento de voz telefónico y PUEDE TENER ERRORES: interprétalo fonéticamente y con la pregunta del agente como contexto (ej.: si se preguntó por hinchazón y se oyó "sin chasón", el paciente dijo "sí, hinchazón"; "fierebres" = "fiebre"). Emite SOLO los campos mencionados; omite el resto. Campos:
+- texto_corregido: la frase del paciente corregida y coherente (emítelo SOLO si el texto tenía errores evidentes de transcripción; conserva el sentido, no inventes síntomas).
 - dolor_nrs: intensidad 0-10 si la dice o se infiere claramente ("casi nada"=1, "insoportable"=9).
 - fiebre_c: temperatura en °C solo si da un número.
 - fiebre_subjetiva: true SOLO si habla de fiebre/calentura/temperatura sin dar número. Si dice que NO tiene fiebre o que es leve y no le preocupa, NO lo marques.
-- herida: normal | enrojecida_leve | enrojecida | secrecion_clara | secrecion_purulenta | abierta. "Un poquito rojita/rosadita/de enrojecimiento" = enrojecida_leve. Enrojecimiento notorio, caliente o que se extiende = enrojecida. OJO: pus, mal olor o líquido amarillo/amarillito/verde = secrecion_purulenta SIEMPRE, aunque el paciente diga que es poquito o normal. Se abrió o se ven puntos sueltos = abierta.
+- herida: normal | enrojecida_leve | enrojecida | hinchada | secrecion_clara | secrecion_purulenta | abierta. "Un poquito rojita/rosadita/de enrojecimiento" = enrojecida_leve. Hinchazón alrededor de la herida = hinchada. Enrojecimiento notorio, caliente o que se extiende = enrojecida. OJO: pus, mal olor o líquido amarillo/amarillito/verde = secrecion_purulenta SIEMPRE, aunque el paciente diga que es poquito o normal. Se abrió o se ven puntos sueltos = abierta.
 - apetito: reducido | nulo (si come poco o nada; no lo emitas si come normal).
 - sueno: alterado (si duerme mal o se despierta varias veces; no lo emitas si duerme bien).
 - dolor_empeora: true SOLO si dice explícitamente que el dolor va aumentando o empeorando ("no mejora" o "no baja" NO es empeorar: omite el campo).
@@ -44,7 +45,7 @@ SCHEMA_EXTRACCION = {
         "fiebre_c": {"type": "number"},
         "fiebre_subjetiva": {"type": "boolean"},
         "herida": {"type": "string",
-                   "enum": ["normal", "enrojecida_leve", "enrojecida",
+                   "enum": ["normal", "enrojecida_leve", "enrojecida", "hinchada",
                             "secrecion_clara", "secrecion_purulenta", "abierta"]},
         "apetito": {"type": "string", "enum": ["reducido", "nulo"]},
         "sueno": {"type": "string", "enum": ["alterado"]},
@@ -54,6 +55,7 @@ SCHEMA_EXTRACCION = {
         "vomito_persistente": {"type": "boolean"},
         "pregunta": {"type": "string"},
         "otros": {"type": "array", "items": {"type": "string"}, "maxItems": 3},
+        "texto_corregido": {"type": "string"},
     },
     # sin "required" y SIN nulls: la gramática permite omitir campos pero no
     # emitir null → el JSON típico son 10-30 tokens, no 100+ (clave en CPU)
