@@ -67,6 +67,10 @@ PARENT_MAX_TOKENS = 1100  # tamaño máximo de sección padre
 TOP_K_LEXICAL = 30
 TOP_K_DENSE = 30
 RRF_K = 60
+# multiplicador para documentos dirigidos al paciente en la fusión
+BOOST_PACIENTE = float(os.getenv("POSTOP_BOOST_PACIENTE", "1.6"))
+# distancia coseno máxima admitida: por encima, no hay fuente pertinente
+DIST_MAX = float(os.getenv("POSTOP_DIST_MAX", "0.42"))
 # 2 fuentes para no inflar el prefill en CPU de 4 núcleos (cada fuente extra
 # son ~500 tokens ≈ 8-10 s de latencia); la fusión RRF ya ordenó por relevancia
 TOP_K_FINAL = int(os.getenv("POSTOP_TOP_K", "2"))

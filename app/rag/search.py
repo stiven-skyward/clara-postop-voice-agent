@@ -98,6 +98,22 @@ class Searcher:
         res, scores = bm.retrieve([toks], k=min(k, len(ids)), show_progress=False)
         return [(ids[int(i)], float(s)) for i, s in zip(res[0], scores[0]) if s > 0]
 
+    @staticmethod
+    def _es_para_paciente(titulo: str) -> bool:
+        """Material educativo dirigido al paciente vs. guía para profesionales.
+
+        El paciente pregunta "¿puedo bañarme?"; la respuesta vive en un plan de
+        cuidado en casa, no en una guía de práctica clínica con clasificación
+        ASA y bibliografía. Sin este sesgo, la rama densa devolvía secciones
+        académicas irrelevantes para la conversación.
+        """
+        t = titulo.lower()
+        return any(k in t for k in (
+            "plan de cuidado", "para el paciente", "del paciente", "instructivo",
+            "instructions", "recomendaciones", "guia para", "guía para",
+            "cuidados en casa", "en casa", "patient", "educacion", "educación",
+            "que debe saber", "qué debe saber", "alta"))
+
     def search(self, query: str, escenario: str | None = None) -> list[Source]:
         store = get_store()
         expanded = expand_query(query)
@@ -105,6 +121,13 @@ class Searcher:
         lex = self._lexical(expanded, config.TOP_K_LEXICAL)
         qvec = get_embedder().embed_query(query)
         den = store.dense_search(qvec, config.TOP_K_DENSE, escenario=escenario)
+
+        # Umbral de pertinencia: si ni el mejor chunk se acerca semánticamente,
+        # NO se devuelven fuentes → el agente declara honestamente que no tiene
+        # esa información en vez de fundamentar en texto irrelevante.
+        # Calibrado con el corpus: consultas del dominio 0.12-0.17, ajenas 0.57+.
+        if den and den[0][1] > config.DIST_MAX:
+            return []
 
         # filtro de escenario sobre la rama léxica (la densa ya filtra en SQL)
         if escenario and lex:
@@ -121,6 +144,16 @@ class Searcher:
             rrf[cid] = rrf.get(cid, 0.0) + 1.0 / (config.RRF_K + rank + 1)
         for rank, (cid, _) in enumerate(den):
             rrf[cid] = rrf.get(cid, 0.0) + 1.0 / (config.RRF_K + rank + 1)
+
+        # Sesgo hacia material dirigido al paciente (la consulta viene de una
+        # llamada, no de una revisión bibliográfica)
+        if rrf:
+            meta_all = store.get_chunks(list(rrf))
+            titulos = {d["doc_id"]: d["titulo"] for d in store.list_documents()}
+            for cid in list(rrf):
+                ch = meta_all.get(cid)
+                if ch and self._es_para_paciente(titulos.get(ch.doc_id, "")):
+                    rrf[cid] *= config.BOOST_PACIENTE
         top = sorted(rrf.items(), key=lambda x: -x[1])[: config.TOP_K_FINAL * 3]
         if not top:
             return []
