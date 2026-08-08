@@ -119,10 +119,26 @@ def _palabras_a_numero(texto: str) -> str:
     return t
 
 
+# Síntomas atribuidos a OTRA persona: en las llamadas interviene un familiar
+# (el dataset del reto inserta turnos de terceros). "Mi hijo tiene 39 de fiebre"
+# no debe escalar la llamada del paciente.
+_TERCERO = re.compile(
+    r"\b(?:mi|el|la|su)\s+(?:hij[oa]|mam[aá]|pap[aá]|espos[oa]|marido|mujer|"
+    r"herman[oa]|niet[oa]|abuel[oa]|vecin[oa]|amig[oa]|suegr[oa]|yern[oa]|"
+    r"nuer[a]|primo|prima|ti[oa]|sobrin[oa])\b")
+
+
+def _sin_terceros(tn: str) -> str:
+    """Elimina las oraciones cuyo sujeto es un tercero antes de extraer."""
+    frases = re.split(r"(?<=[.!?,;])\s+|\s+(?:pero|aunque|y)\s+", tn)
+    quedan = [f for f in frases if not _TERCERO.search(f)]
+    return " ".join(quedan) if quedan else ""
+
+
 def fallback_extract(text: str) -> dict:
     """Extracción por reglas de los síntomas de mayor señal. Se aplica SIEMPRE
     como red de seguridad y se fusiona con la del LLM tomando lo más grave."""
-    tn = _palabras_a_numero(_norm(text))
+    tn = _sin_terceros(_palabras_a_numero(_norm(text)))
     out: dict = {}
 
     # Fiebre: número plausible (35-43) cerca de una palabra de temperatura
@@ -147,8 +163,8 @@ def fallback_extract(text: str) -> dict:
         out["dolor_empeora"] = True
     if re.search(r"no puedo respirar|me falta el aire|me ahogo|dificultad para respirar", tn):
         out["disnea"] = True
-    if re.search(r"sangra|sangrado|mucha sangre", tn) and not re.search(
-            r"(?:sin|no|nada de)\s+(?:\w+\s+){0,2}sangr", tn):
+    if re.search(r"\bsangr\w*|\bsangre\b|\bhemorragi\w*", tn) and not re.search(
+            r"(?:sin|no|nada de|ni)\s+(?:\w+\s+){0,2}(?:sangr|sangre|hemorragi)", tn):
         out["sangrado"] = True
     return out
 
@@ -366,7 +382,7 @@ def quick_red_scan(text: str) -> str | None:
     Permite responder el escalamiento en <1 s; la extracción formal corre después
     para el registro. Ignora menciones negadas ("nada de pus"). Devuelve la
     señal detectada o None."""
-    tn = _norm(text)
+    tn = _sin_terceros(_norm(text))   # "mi hijo bota pus" no escala esta llamada
     for kw in _QUICK_RED:
         i = tn.find(kw)
         if i >= 0 and not re.search(_NEGATION, tn[max(0, i - 30):i]):
