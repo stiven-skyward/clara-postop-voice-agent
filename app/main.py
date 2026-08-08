@@ -205,7 +205,12 @@ async def ws_call(ws: WebSocket):
 
     def send_audio(sr: int, text: str, pcm: bytes) -> None:
         """Encola cabecera + PCM como UNA unidad: dos hilos hablando (saludo y
-        turno) podían intercalar sus pares y desparejar audio de cabecera."""
+        turno) podían intercalar sus pares y desparejar audio de cabecera.
+
+        Acumula además la duración enviada: el reloj de silencio no puede
+        empezar a correr mientras Clara todavía está hablando.
+        """
+        audio_pendiente["s"] += len(pcm) / 2 / sr
         loop.call_soon_threadsafe(
             out_q.put_nowait, [{"type": "audio_start", "sr": sr, "text": text}, pcm])
 
@@ -225,14 +230,21 @@ async def ws_call(ws: WebSocket):
 
     send_task = asyncio.create_task(sender())
     last_activity = {"t": time.monotonic(), "nudges": 0}
+    audio_pendiente = {"s": 0.0}   # segundos de audio encolados en este turno
 
     async def silence_watchdog():
-        """Si el paciente calla >15 s sin turno en curso, Clara retoma."""
+        """Si el paciente calla mucho rato SIN que Clara esté hablando, retoma.
+
+        El reloj se mide desde que termina de sonar la respuesta (no desde que
+        se genera): antes, con una respuesta hablada de 10 s, al paciente le
+        quedaban 5 s para arrancar y Clara le preguntaba «¿sigue ahí?» encima.
+        """
         while True:
             await asyncio.sleep(5)
             idle = time.monotonic() - last_activity["t"]
             busy = worker is not None and worker.is_alive()
-            if state is not None and not busy and idle > 15 and last_activity["nudges"] < 3:
+            if state is not None and not busy and idle > config.SILENCIO_S \
+                    and last_activity["nudges"] < 3:
                 last_activity["t"] = time.monotonic()
                 last_activity["nudges"] += 1
                 frase = ("¿Sigue ahí? Tómese su tiempo, no hay afán."
@@ -244,6 +256,8 @@ async def ws_call(ws: WebSocket):
                     pcm, sr = tts.synthesize_cached(f)
                     if pcm and not cancel.is_set():
                         send_audio(sr, f, bytes(pcm))
+                        last_activity["t"] = time.monotonic() + audio_pendiente["s"]
+                        audio_pendiente["s"] = 0.0
                 threading.Thread(target=_nudge, daemon=True).start()
 
     watchdog_task = asyncio.create_task(silence_watchdog())
@@ -337,7 +351,9 @@ async def ws_call(ws: WebSocket):
               "triaje": state.nivel, "alerta": state.alerted})
         tm.save()
         send({"type": "turn_end"})
-        last_activity["t"] = time.monotonic()  # el silencio cuenta desde aquí
+        # el silencio se cuenta desde que ACABA de sonar la respuesta
+        last_activity["t"] = time.monotonic() + audio_pendiente["s"]
+        audio_pendiente["s"] = 0.0
 
     try:
         while True:
@@ -385,10 +401,15 @@ async def ws_call(ws: WebSocket):
                         send({"type": "agent_text", "text": t,
                               "triaje": "verde", "alerta": False})
                         send({"type": "turn_end"})
+                        last_activity["t"] = time.monotonic() + audio_pendiente["s"]
+                        audio_pendiente["s"] = 0.0
                     # registrado como worker: el saludo y un turno del paciente
                     # no deben solaparse (audio entrelazado)
                     worker = threading.Thread(target=_greet, daemon=True)
                     worker.start()
+                elif data.get("type") == "playback_done":
+                    # señal real del navegador: la respuesta terminó de sonar
+                    last_activity["t"] = time.monotonic()
                 elif data.get("type") == "end":
                     break
             elif msg.get("bytes") and state is not None:

@@ -107,7 +107,12 @@ async function drain(){
     await new Promise(res => { src.onended = res; src.start(); });
     curSrc = null;
   }
-  if(gen === playGen) playing = false;
+  if(gen === playGen){
+    playing = false;
+    // avisa al servidor: solo AHORA empieza a correr el reloj de silencio,
+    // para no interrumpir al paciente mientras Clara todavía hablaba
+    if(ws && ws.readyState === 1) ws.send(JSON.stringify({type:'playback_done'}));
+  }
 }
 
 $('btnStart').onclick = async () => {
@@ -116,17 +121,41 @@ $('btnStart').onclick = async () => {
   ws = new WebSocket(`ws://${location.host}/ws/call`);
   ws.binaryType = 'arraybuffer';
   ws.onopen = async () => {
-    ws.send(JSON.stringify({type:'start', patient:p}));
-    ac = new AudioContext();
-    mic = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
-    await ac.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET],{type:'text/javascript'})));
-    const srcNode = ac.createMediaStreamSource(mic);
-    workletNode = new AudioWorkletNode(ac,'cap');
-    workletNode.port.onmessage = e => { if(ws.readyState===1) ws.send(e.data.buffer); };
-    srcNode.connect(workletNode);
-    $('status').textContent = 'en llamada — hable con naturalidad';
-    $('btnStart').disabled = true; $('btnEnd').disabled = false;
-    $('triaje').style.display='inline-block';
+    try {
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        throw new Error('Este navegador no expone el micrófono. Abra la página en '
+          + 'http://localhost:8000 (no por dirección IP): el micrófono solo se '
+          + 'permite en orígenes seguros.');
+      }
+      ws.send(JSON.stringify({type:'start', patient:p}));
+      ac = new AudioContext();
+      mic = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
+      await ac.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET],{type:'text/javascript'})));
+      const srcNode = ac.createMediaStreamSource(mic);
+      workletNode = new AudioWorkletNode(ac,'cap');
+      workletNode.port.onmessage = e => { if(ws.readyState===1) ws.send(e.data.buffer); };
+      srcNode.connect(workletNode);
+      if(ac.state === 'suspended') await ac.resume();
+      $('status').textContent = 'en llamada — hable con naturalidad';
+      $('btnStart').disabled = true; $('btnEnd').disabled = false;
+      $('triaje').style.display='inline-block';
+    } catch (err) {
+      // sin esto, un fallo de micrófono dejaba la página muda y sin explicación
+      const msg = (err && err.name === 'NotAllowedError')
+        ? 'Permiso de micrófono denegado. Haga clic en el candado de la barra de '
+          + 'direcciones → Micrófono → Permitir, y recargue.'
+        : (err && err.name === 'NotFoundError')
+        ? 'No se detectó ningún micrófono conectado.'
+        : (err && err.message) || String(err);
+      $('status').textContent = '⚠ ' + msg;
+      $('status').style.color = '#a1160a';
+      log('Sistema', 'No se pudo iniciar la llamada: ' + msg);
+      endCall(true);
+    }
+  };
+  ws.onerror = () => {
+    $('status').textContent = '⚠ No hay conexión con el servidor (¿está corriendo scripts/run.sh?)';
+    $('status').style.color = '#a1160a';
   };
   ws.onmessage = ev => {
     if(typeof ev.data === 'string'){
