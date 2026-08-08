@@ -154,28 +154,66 @@ def _is_toc_like(name: str, text: str) -> bool:
     return False
 
 
+def _hard_split(text: str, count_tokens) -> list[str]:
+    """Trocea un bloque en piezas <= PARENT_MAX_TOKENS.
+
+    Cascada de separadores: párrafos → líneas → oraciones → corte duro por
+    palabras. Los PDFs suelen extraerse con saltos simples (sin '\\n\\n'), y
+    partir solo por párrafos dejaba secciones enteras sin dividir (se vieron
+    padres de 34.000 tokens que reventaban el contexto del LLM).
+    """
+    if count_tokens(text) <= config.PARENT_MAX_TOKENS:
+        return [text]
+    for sep, join in ((r"\n\n+", "\n\n"), (r"\n", "\n"),
+                      (r"(?<=[.!?])\s+", " ")):
+        piezas = [p for p in re.split(sep, text) if p.strip()]
+        if len(piezas) < 2:
+            continue
+        out, buf = [], []
+        for p in piezas:
+            cand = buf + [p]
+            if buf and count_tokens(join.join(cand)) > config.PARENT_MAX_TOKENS:
+                out.append(join.join(buf))
+                buf = [p]
+            else:
+                buf = cand
+        if buf:
+            out.append(join.join(buf))
+        # si alguna pieza sigue siendo enorme, se refina con el siguiente separador
+        return [q for pieza in out for q in
+                (_hard_split(pieza, count_tokens)
+                 if count_tokens(pieza) > config.PARENT_MAX_TOKENS else [pieza])]
+    # sin separadores utilizables: corte duro por palabras
+    palabras = text.split()
+    if len(palabras) > 1:
+        out, buf = [], []
+        for w in palabras:
+            buf.append(w)
+            if count_tokens(" ".join(buf)) > config.PARENT_MAX_TOKENS:
+                out.append(" ".join(buf[:-1]))
+                buf = [w]
+        if buf:
+            out.append(" ".join(buf))
+        return [p for p in out if p.strip()]
+    # último recurso: bloque sin espacios (OCR corrupto) → corte por caracteres
+    # proporcional a la densidad de tokens observada
+    ratio = max(1, len(text) // max(1, count_tokens(text)))
+    paso = max(200, int(config.PARENT_MAX_TOKENS * ratio * 0.9))
+    return [text[i:i + paso] for i in range(0, len(text), paso)]
+
+
 def _split_parent(sections: list[dict], count_tokens) -> list[dict]:
-    """Limita padres a PARENT_MAX_TOKENS partiendo por párrafos si hace falta."""
+    """Limita padres a PARENT_MAX_TOKENS con partido en cascada."""
     out = []
     for sec in sections:
         text = re.sub(r"\.{4,}", " ", sec["texto"])  # puntos de relleno de índices
         text = re.sub(r"\n{3,}", "\n\n", text).strip()
         if not text or _is_toc_like(sec["seccion"], sec["texto"]):
             continue
-        if count_tokens(text) <= config.PARENT_MAX_TOKENS:
-            out.append({**sec, "texto": text})
-            continue
-        paras = re.split(r"\n\n+", text)
-        buf, part = [], 1
-        for para in paras:
-            buf.append(para)
-            if count_tokens("\n\n".join(buf)) > config.PARENT_MAX_TOKENS:
-                out.append({**sec, "seccion": f"{sec['seccion']} ({part})",
-                            "texto": "\n\n".join(buf[:-1]) or para})
-                buf, part = [para], part + 1
-        if buf and "\n\n".join(buf).strip():
-            suffix = f" ({part})" if part > 1 else ""
-            out.append({**sec, "seccion": f"{sec['seccion']}{suffix}", "texto": "\n\n".join(buf)})
+        piezas = _hard_split(text, count_tokens)
+        for i, pieza in enumerate(piezas, 1):
+            suf = f" ({i})" if len(piezas) > 1 else ""
+            out.append({**sec, "seccion": f"{sec['seccion']}{suf}", "texto": pieza})
     return out
 
 

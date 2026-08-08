@@ -90,6 +90,85 @@ def sanitize_extraction(ext: dict, user_text: str) -> dict:
     return out
 
 
+# --- Extractor determinista de respaldo (NO depende del LLM) --------------
+# Red de seguridad: si llama-server está caído o devuelve basura, los síntomas
+# numéricos de alarma (fiebre y dolor) se siguen detectando. Sin esto, una
+# llamada con el LLM caído clasificaba "39 de fiebre y dolor 9" como VERDE.
+_PALABRA_NUM = {
+    "cero": 0, "uno": 1, "una": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
+    "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10, "once": 11,
+    "doce": 12, "trece": 13, "catorce": 14, "quince": 15, "dieciseis": 16,
+    "diecisiete": 17, "dieciocho": 18, "diecinueve": 19, "veinte": 20,
+    "treinta": 30, "cuarenta": 40,
+}
+
+
+def _palabras_a_numero(texto: str) -> str:
+    """'treinta y nueve' → '39'; 'nueve' → '9' (para que los regex numéricos
+    funcionen aunque el ASR escriba los números en letras)."""
+    t = texto
+    for dec in ("cuarenta", "treinta", "veinte"):
+        for uni, v in _PALABRA_NUM.items():
+            if v < 10 and v > 0:
+                t = re.sub(rf"\b{dec}\s+y\s+{uni}\b",
+                           str(_PALABRA_NUM[dec] + v), t)
+        t = re.sub(rf"\b{dec}\b", str(_PALABRA_NUM[dec]), t)
+    for pal, v in _PALABRA_NUM.items():
+        t = re.sub(rf"\b{pal}\b", str(v), t)
+    t = re.sub(r"\b(\d+)\s+punto\s+(\d+)\b", r"\1.\2", t)
+    return t
+
+
+def fallback_extract(text: str) -> dict:
+    """Extracción por reglas de los síntomas de mayor señal. Se aplica SIEMPRE
+    como red de seguridad y se fusiona con la del LLM tomando lo más grave."""
+    tn = _palabras_a_numero(_norm(text))
+    out: dict = {}
+
+    # Fiebre: número plausible (35-43) cerca de una palabra de temperatura
+    for m in re.finditer(r"\b(3[5-9]|4[0-3])(?:[.,](\d))?\b", tn):
+        val = float(f"{m.group(1)}.{m.group(2) or 0}")
+        ctx = tn[max(0, m.start() - 45):m.end() + 45]
+        if re.search(r"fiebre|temperatura|calentur|grados|termometr|febril", ctx):
+            out["fiebre_c"] = max(out.get("fiebre_c", 0), val)
+    if "fiebre_c" not in out and re.search(
+            r"fiebre|calentur|destempl|febril|acalorad", tn) and not re.search(
+            r"(?:sin|no|nada de|ni)\s+(?:\w+\s+){0,2}(?:fiebre|calentur|temperatura)", tn):
+        out["fiebre_subjetiva"] = True
+
+    # Dolor 0-10: número cerca de una palabra de dolor o de escala
+    for m in re.finditer(r"\b(10|[0-9])\b", tn):
+        val = int(m.group(1))
+        ctx = tn[max(0, m.start() - 50):m.end() + 30]
+        if re.search(r"dolor|duele|molest|escala|de 0 a 10|sobre diez|adolori", ctx):
+            out["dolor_nrs"] = max(out.get("dolor_nrs", 0), val)
+
+    if re.search(r"empeor|aument|va subiendo|mas fuerte|cada vez peor", tn):
+        out["dolor_empeora"] = True
+    if re.search(r"no puedo respirar|me falta el aire|me ahogo|dificultad para respirar", tn):
+        out["disnea"] = True
+    if re.search(r"sangra|sangrado|mucha sangre", tn) and not re.search(
+            r"(?:sin|no|nada de)\s+(?:\w+\s+){0,2}sangr", tn):
+        out["sangrado"] = True
+    return out
+
+
+def merge_worst(base: dict, extra: dict) -> dict:
+    """Funde dos extracciones quedándose con el valor MÁS GRAVE de cada campo."""
+    out = dict(base)
+    for k, v in extra.items():
+        if v is None:
+            continue
+        cur = out.get(k)
+        if cur is None:
+            out[k] = v
+        elif k in ("fiebre_c", "dolor_nrs"):
+            out[k] = max(float(cur), float(v))
+        elif isinstance(v, bool):
+            out[k] = bool(cur) or v
+    return out
+
+
 @dataclass
 class SymptomState:
     """Estado acumulado de síntomas durante la llamada (merge por turno)."""

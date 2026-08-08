@@ -20,7 +20,8 @@ from typing import Iterator
 from app import config, llm, metrics
 from app.agent import prompts
 from app.agent.triage import (SymptomState, TriageResult, combine, evaluate,
-                              quick_red_scan, sanitize_extraction)
+                              fallback_extract, merge_worst, quick_red_scan,
+                              sanitize_extraction)
 from app.rag.search import Source, get_searcher
 
 
@@ -159,8 +160,11 @@ def process_turn(state: CallState, user_text: str,
             ext = llm.structured(_extraction_messages(state, user_text),
                                  prompts.SCHEMA_EXTRACCION, stats=stats, max_tokens=300)
             ground = user_text + " " + (ext.get("texto_corregido") or "")
-            state.symptoms.merge(sanitize_extraction(ext, ground))
+            ext = merge_worst(sanitize_extraction(ext, ground),
+                              fallback_extract(ground))
+            state.symptoms.merge(ext)
         except Exception:
+            state.symptoms.merge(fallback_extract(user_text))
             state.symptoms.otros.append(user_text[:120])
         tri = evaluate(state.symptoms, p.procedimiento, p.dia_postop)
         state.razones = tri.razones or [f"Señal de alarma textual: «{señal}»"]
@@ -193,6 +197,10 @@ def process_turn(state: CallState, user_text: str,
     # el anclaje valida contra el texto original MÁS el corregido: una señal
     # legítima recuperada por la corrección no debe descartarse
     ext = sanitize_extraction(ext, user_text + " " + corregido)
+    # red de seguridad determinista: si el LLM falló, omitió o subestimó un
+    # síntoma numérico de alarma, las reglas lo recuperan (falso negativo = falla
+    # catastrófica). Se funde quedándose siempre con lo más grave.
+    ext = merge_worst(ext, fallback_extract(user_text + " " + corregido))
     state.symptoms.merge(ext)
     user_text_final = corregido or user_text
 

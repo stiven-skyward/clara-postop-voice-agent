@@ -19,8 +19,8 @@ import pandas as pd
 from app import config, llm
 from app.agent import prompts
 from app.agent.orchestrator import _worth_extracting
-from app.agent.triage import (SymptomState, combine, evaluate,
-                              quick_red_scan, sanitize_extraction)
+from app.agent.triage import (SymptomState, combine, evaluate, fallback_extract,
+                              merge_worst, quick_red_scan, sanitize_extraction)
 
 N_VERDE = int(sys.argv[1]) if len(sys.argv) > 1 else 20
 CAPA = sys.argv[2] if len(sys.argv) > 2 else "capa1_limpia"
@@ -55,16 +55,18 @@ def main():
             # mismo pipeline que producción: el atajo léxico rojo escala directo
             if quick_red_scan(str(t.texto)):
                 nivel = "rojo"
-            if not _worth_extracting(str(t.texto)):
-                continue
-            try:
-                ext = llm.structured(
-                    [{"role": "system", "content": prompts.SYSTEM_EXTRACCION},
-                     {"role": "user", "content": str(t.texto)}],
-                    prompts.SCHEMA_EXTRACCION, max_tokens=260)
-            except Exception:
-                continue
-            state.merge(sanitize_extraction(ext, str(t.texto)))
+            ext = {}
+            if _worth_extracting(str(t.texto)):
+                try:
+                    ext = llm.structured(
+                        [{"role": "system", "content": prompts.SYSTEM_EXTRACCION},
+                         {"role": "user", "content": str(t.texto)}],
+                        prompts.SCHEMA_EXTRACCION, max_tokens=260)
+                    ext = sanitize_extraction(ext, str(t.texto))
+                except Exception:
+                    ext = {}
+            # red de seguridad determinista, igual que en producción
+            state.merge(merge_worst(ext, fallback_extract(str(t.texto))))
             tri = evaluate(state, proc.get(case.paciente, ""), int(case.dia))
             nivel = combine(nivel, tri.nivel)
         results.append({"caso_id": case.caso_id, "esperado": case.label,

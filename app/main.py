@@ -348,14 +348,26 @@ async def ws_call(ws: WebSocket):
                 except (ValueError, TypeError):
                     continue  # frame malformado: ignorar, no tumbar la llamada
                 if data.get("type") == "start" and state is None:
-                    p = data.get("patient", {})
+                    p = data.get("patient") or {}
+                    if not isinstance(p, dict):
+                        p = {}
+
+                    def _int(v, por_defecto):
+                        try:
+                            return max(0, min(200, int(float(v))))
+                        except (TypeError, ValueError):
+                            return por_defecto
+
+                    def _txt(v, por_defecto, limite=80):
+                        return str(v)[:limite] if isinstance(v, (str, int, float)) and str(v).strip() else por_defecto
+
                     state = CallState(Patient(
-                        nombre=p.get("nombre", "Paciente"),
-                        edad=int(p.get("edad", 50)),
-                        procedimiento=p.get("procedimiento", "cirugía"),
-                        dia_postop=int(p.get("dia_postop", 3)),
-                        escenario=p.get("escenario"),
-                        paciente_id=p.get("paciente_id", ""),
+                        nombre=_txt(p.get("nombre"), "Paciente"),
+                        edad=_int(p.get("edad"), 50),
+                        procedimiento=_txt(p.get("procedimiento"), "cirugía"),
+                        dia_postop=_int(p.get("dia_postop"), 3),
+                        escenario=_txt(p.get("escenario"), None, 40) if p.get("escenario") else None,
+                        paciente_id=_txt(p.get("paciente_id"), "", 40),
                     ))
                     text = greeting(state)
 
@@ -378,7 +390,13 @@ async def ws_call(ws: WebSocket):
                 elif data.get("type") == "end":
                     break
             elif msg.get("bytes") and state is not None:
-                samples = np.frombuffer(msg["bytes"], dtype=np.float32)
+                raw = msg["bytes"]
+                if len(raw) < 4:
+                    continue
+                # tolerar longitudes no múltiplas de 4 (frames truncados)
+                samples = np.frombuffer(raw[:len(raw) - len(raw) % 4], dtype=np.float32)
+                if not np.all(np.isfinite(samples)):
+                    samples = np.nan_to_num(samples, nan=0.0, posinf=0.0, neginf=0.0)
                 for ev, audio in vad.feed(samples):
                     if ev == "speech_start":
                         cancel.set()  # barge-in: corta la síntesis en curso
