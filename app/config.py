@@ -54,6 +54,8 @@ VAD_MODEL = MODELS_DIR / "silero_vad.onnx"
 # dificultades del habla, sin penalizar demasiado la latencia
 VAD_SILENCE_MS = int(os.getenv("POSTOP_VAD_SILENCE_MS", "650"))
 VAD_THRESHOLD = float(os.getenv("POSTOP_VAD_THRESHOLD", "0.5"))
+# tope de un solo turno hablado: protege de ruido continuo que nunca cierre
+VAD_MAX_UTTERANCE_S = float(os.getenv("POSTOP_VAD_MAX_UTTERANCE_S", "30"))
 
 # --- RAG ---
 EMB_MODEL = MODELS_DIR / "e5-small-q8.onnx"

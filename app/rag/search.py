@@ -41,17 +41,38 @@ class Source:
     texto: str
     score: float
     chunk_ids: list[int] = field(default_factory=list)
+    hijo: str = ""     # fragmento que realmente casó con la consulta
+
+    def ventana(self, max_chars: int = 1200) -> str:
+        """Texto para el prompt: ventana del padre CENTRADA en el fragmento que
+        casó. Cortar por el principio del padre dejaba fuera lo relevante."""
+        if len(self.texto) <= max_chars:
+            return self.texto
+        pos = self.texto.find(self.hijo[:80]) if self.hijo else -1
+        if pos < 0:
+            return self.texto[:max_chars]
+        ini = max(0, pos - max_chars // 4)
+        return ("…" if ini else "") + self.texto[ini:ini + max_chars] + "…"
 
 
 class Searcher:
     def __init__(self) -> None:
         self._lock = threading.Lock()
+        self._rebuild_lock = threading.Lock()
         self._bm25: bm25s.BM25 | None = None
         self._ids: list[int] = []
         self.rebuild()
 
     def rebuild(self) -> None:
-        """Reconstruye el índice BM25 desde el store y lo intercambia atómicamente."""
+        """Reconstruye el índice BM25 desde el store y lo intercambia atómicamente.
+
+        Serializado: dos rebuilds concurrentes (alta y baja a la vez) podían
+        intercambiar en orden inverso y publicar un índice obsoleto.
+        """
+        with self._rebuild_lock:
+            self._rebuild()
+
+    def _rebuild(self) -> None:
         store = get_store()
         chunks = store.all_chunks()
         titles = {d["doc_id"]: d["titulo"] for d in store.list_documents()}
@@ -89,8 +110,10 @@ class Searcher:
         if escenario and lex:
             meta = store.get_chunks([i for i, _ in lex])
             docs = {d["doc_id"]: d["escenario"] for d in store.list_documents()}
+            # meta.get: el índice BM25 puede traer ids ya borrados por la consola
+            # (KeyError aquí mataba el turno completo del paciente)
             lex = [(i, s) for i, s in lex
-                   if docs.get(meta[i].doc_id) in (escenario, "general")]
+                   if i in meta and docs.get(meta[i].doc_id) in (escenario, "general")]
 
         # Fusión RRF
         rrf: dict[int, float] = {}
@@ -123,7 +146,7 @@ class Searcher:
             sources.append(Source(
                 n=len(sources) + 1, doc_id=doc_id, titulo=store.doc_title(doc_id),
                 seccion=seccion, pagina_ini=p0, pagina_fin=p1, texto=texto,
-                score=score, chunk_ids=[cid],
+                score=score, chunk_ids=[cid], hijo=ch.texto,
             ))
             if len(sources) >= config.TOP_K_FINAL:
                 break

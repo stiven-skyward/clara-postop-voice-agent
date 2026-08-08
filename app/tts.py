@@ -145,11 +145,17 @@ class SentenceStreamer:
 
 
 _phrase_cache: dict[str, tuple[bytes, int]] = {}
+_PHRASE_CACHE_MAX = 16
 
 
 def synthesize_cached(text: str) -> tuple[bytes, int]:
-    """Como synthesize(), con caché para frases fijas (saludo, escalamiento)."""
+    """Como synthesize(), con caché acotada para frases fijas del sistema
+    (escalamiento, aclaraciones). El tope evita que texto generado por el LLM
+    la haga crecer sin límite durante la vida del proceso."""
     key = text.strip()
-    if key not in _phrase_cache:
-        _phrase_cache[key] = synthesize(key)
-    return _phrase_cache[key]
+    if key in _phrase_cache:
+        return _phrase_cache[key]
+    result = synthesize(key)
+    if len(_phrase_cache) < _PHRASE_CACHE_MAX:
+        _phrase_cache[key] = result
+    return result

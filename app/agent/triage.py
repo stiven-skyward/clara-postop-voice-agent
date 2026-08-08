@@ -274,7 +274,7 @@ def evaluate(s: SymptomState, procedimiento: str = "", dia_postop: int = 1) -> T
 
 _QUICK_RED = _RED_TEXT + [
     "huele feo", "huele mal", "mal olor", "liquido amarillo", "liquidito amarillo",
-    "liquido verde", "amarillit", "verdos", "no aguanto el dolor",
+    "liquido verde", "amarillit", "amarillent", "verdos", "no aguanto el dolor",
     "dolor insoportable",
 ]
 

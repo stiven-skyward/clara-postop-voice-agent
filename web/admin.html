@@ -30,13 +30,15 @@
 <div id="metrics">cargando…</div>
 <script>
 const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function refresh(){
   const docs = await (await fetch('/api/docs')).json();
   $('rows').innerHTML = docs.map(d => `<tr>
-    <td title="${d.fichero}">${d.titulo}</td><td>${d.idioma||''}</td><td>${d.escenario||''}</td>
-    <td>${d.paginas||''}</td><td>${d.n_chunks||''}</td>
-    <td class="${d.estado==='disponible'?'ok':'proc'}">${d.estado==='disponible'?'✔ procesado y disponible':d.estado}</td>
-    <td><button class="danger" onclick="del('${d.doc_id}')">eliminar</button></td></tr>`).join('')
+    <td title="${esc(d.fichero)}">${esc(d.titulo)}</td><td>${esc(d.idioma)}</td><td>${esc(d.escenario)}</td>
+    <td>${esc(d.paginas)}</td><td>${esc(d.n_chunks)}</td>
+    <td class="${d.estado==='disponible'?'ok':'proc'}">${d.estado==='disponible'?'✔ procesado y disponible':esc(d.estado)}</td>
+    <td><button class="danger" onclick="del('${esc(d.doc_id)}')">eliminar</button></td></tr>`).join('')
     || '<tr><td colspan="7">Sin documentos. El agente no tiene conocimiento cargado.</td></tr>';
   $('metrics').textContent = JSON.stringify(await (await fetch('/api/metrics')).json(), null, 2);
 }

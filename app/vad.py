@@ -52,6 +52,16 @@ class StreamingVAD:
             p = self._prob(chunk)
             if self._in_speech:
                 self._speech.append(chunk)
+                # corte duro: ruido continuo (TV, calle) puede mantener la
+                # probabilidad alta indefinidamente → el buffer crecería sin
+                # límite y whisper procesaría minutos de audio con el lock global
+                if len(self._speech) * CHUNK / SR >= config.VAD_MAX_UTTERANCE_S:
+                    audio = np.concatenate(self._pre + self._speech)
+                    events.append(("speech_end", audio))
+                    self._speech, self._pre = [], []
+                    self._in_speech = False
+                    self._silence_ms = 0.0
+                    continue
                 if p < config.VAD_THRESHOLD - 0.15:
                     self._silence_ms += 1000 * CHUNK / SR
                     if self._silence_ms >= config.VAD_SILENCE_MS:

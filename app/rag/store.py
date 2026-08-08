@@ -33,14 +33,36 @@ class Chunk:
 
 
 class Store:
+    """Una conexión SQLite POR HILO (threading.local).
+
+    Compartir una sola conexión entre los hilos de las llamadas y el de ingesta
+    provoca lecturas sucias, `cannot commit - SQL statements in progress` y
+    cursores invalidados. Con WAL + conexión por hilo, lectores y escritor
+    conviven; `lock` solo serializa a los escritores entre sí.
+    """
+
     def __init__(self, db_path: str | None = None) -> None:
-        self.lock = threading.Lock()
-        self.conn = sqlite3.connect(str(db_path or config.DB_PATH), check_same_thread=False)
-        self.conn.enable_load_extension(True)
-        sqlite_vec.load(self.conn)
-        self.conn.enable_load_extension(False)
-        self.conn.execute("PRAGMA journal_mode=WAL")
+        self.lock = threading.RLock()
+        self.db_path = str(db_path or config.DB_PATH)
+        self._local = threading.local()
         self._init_schema()
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.db_path, timeout=30.0)
+        conn.enable_load_extension(True)
+        sqlite_vec.load(conn)
+        conn.enable_load_extension(False)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=30000")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        return conn
+
+    @property
+    def conn(self) -> sqlite3.Connection:
+        c = getattr(self._local, "conn", None)
+        if c is None:
+            c = self._local.conn = self._connect()
+        return c
 
     def _init_schema(self) -> None:
         with self.conn:
@@ -83,6 +105,13 @@ class Store:
     ) -> int:
         n = 0
         with self.lock, self.conn:
+            # limpieza previa: dos ingestas concurrentes del mismo fichero
+            # pasarían ambas el check de doc_exists y duplicarían los chunks
+            self.conn.execute(
+                "DELETE FROM vec_chunks WHERE chunk_id IN "
+                "(SELECT chunk_id FROM chunks WHERE doc_id=?)", (doc_id,))
+            self.conn.execute("DELETE FROM chunks WHERE doc_id=?", (doc_id,))
+            self.conn.execute("DELETE FROM parents WHERE doc_id=?", (doc_id,))
             self.conn.execute(
                 "INSERT OR REPLACE INTO documents VALUES(?,?,?,?,?,?,?, 'procesando', ?)",
                 (doc_id, titulo, fichero, idioma, escenario, paginas, 0, time.time()),
@@ -113,11 +142,11 @@ class Store:
         with self.lock, self.conn:
             if not self.doc_exists(doc_id):
                 return False
-            ids = [r[0] for r in self.conn.execute(
-                "SELECT chunk_id FROM chunks WHERE doc_id=?", (doc_id,)).fetchall()]
-            if ids:
-                q = ",".join("?" * len(ids))
-                self.conn.execute(f"DELETE FROM vec_chunks WHERE chunk_id IN ({q})", ids)
+            # subconsulta en vez de IN (?,?,…): un doc con miles de chunks
+            # superaría el límite de variables de SQLite
+            self.conn.execute(
+                "DELETE FROM vec_chunks WHERE chunk_id IN "
+                "(SELECT chunk_id FROM chunks WHERE doc_id=?)", (doc_id,))
             self.conn.execute("DELETE FROM chunks WHERE doc_id=?", (doc_id,))
             self.conn.execute("DELETE FROM parents WHERE doc_id=?", (doc_id,))
             self.conn.execute("DELETE FROM documents WHERE doc_id=?", (doc_id,))

@@ -11,9 +11,16 @@ _lock = threading.Lock()
 _model = None
 
 
+_load_lock = threading.Lock()
+
+
 def get_model():
     global _model
-    if _model is None:
+    if _model is not None:
+        return _model
+    with _load_lock:  # double-checked: evita cargar dos veces el modelo
+        if _model is not None:
+            return _model
         from pywhispercpp.model import Model
         _model = Model(
             str(config.STT_MODEL),

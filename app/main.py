@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-import shutil
+import re
 import threading
 import time
 import uuid
@@ -94,17 +94,42 @@ def list_docs():
     return get_store().list_documents()
 
 
+_ALLOWED_EXT = {".pdf", ".txt", ".md"}
+_MAX_UPLOAD = 100 * 1024 * 1024  # 100 MB
+
+
 @app.post("/api/docs")
 async def upload_doc(file: UploadFile):
-    dest = config.UPLOADS_DIR / f"{uuid.uuid4().hex[:8]}_{file.filename}"
+    # nombre saneado: sin rutas ni caracteres de control/HTML (path traversal, XSS)
+    name = Path(file.filename or "documento").name
+    name = re.sub(r"[^\w .\-áéíóúñüÁÉÍÓÚÑÜ()]", "_", name)[:120] or "documento"
+    ext = Path(name).suffix.lower()
+    if ext not in _ALLOWED_EXT:
+        return JSONResponse(
+            {"error": f"Extensión no soportada '{ext}'. Formatos: PDF, TXT, MD."},
+            status_code=400)
+    dest = config.UPLOADS_DIR / f"{uuid.uuid4().hex[:8]}_{name}"
+    size = 0
     with dest.open("wb") as f:
-        shutil.copyfileobj(file.file, f)
+        while chunk := await file.read(1024 * 1024):
+            size += len(chunk)
+            if size > _MAX_UPLOAD:
+                f.close()
+                dest.unlink(missing_ok=True)
+                return JSONResponse({"error": "Archivo demasiado grande (máx. 100 MB)."},
+                                    status_code=413)
+            f.write(chunk)
+    if size == 0:
+        dest.unlink(missing_ok=True)
+        return JSONResponse({"error": "El archivo está vacío."}, status_code=400)
     t0 = time.perf_counter()
     try:
-        info = await asyncio.to_thread(ingest.ingest_file, dest, file.filename)
+        info = await asyncio.to_thread(ingest.ingest_file, dest, name)
     except Exception as e:
         dest.unlink(missing_ok=True)
         return JSONResponse({"error": str(e)}, status_code=400)
+    if info.get("estado", "").startswith("error"):
+        dest.unlink(missing_ok=True)
     info["segundos_ingesta"] = round(time.perf_counter() - t0, 1)
     return info
 
@@ -172,9 +197,16 @@ async def ws_call(ws: WebSocket):
     vad = StreamingVAD()
     state: CallState | None = None
     worker: threading.Thread | None = None
+    pending: list = []   # audio del paciente recibido mientras el turno corría
 
     def send(msg) -> None:  # llamable desde hilos
         loop.call_soon_threadsafe(out_q.put_nowait, msg)
+
+    def send_audio(sr: int, text: str, pcm: bytes) -> None:
+        """Encola cabecera + PCM como UNA unidad: dos hilos hablando (saludo y
+        turno) podían intercalar sus pares y desparejar audio de cabecera."""
+        loop.call_soon_threadsafe(
+            out_q.put_nowait, [{"type": "audio_start", "sr": sr, "text": text}, pcm])
 
     async def sender():
         while True:
@@ -182,10 +214,11 @@ async def ws_call(ws: WebSocket):
             if msg is None:
                 break
             try:
-                if isinstance(msg, (bytes, bytearray)):
-                    await ws.send_bytes(msg)
-                else:
-                    await ws.send_text(json.dumps(msg, ensure_ascii=False))
+                for part in (msg if isinstance(msg, list) else [msg]):
+                    if isinstance(part, (bytes, bytearray)):
+                        await ws.send_bytes(part)
+                    else:
+                        await ws.send_text(json.dumps(part, ensure_ascii=False))
             except Exception:
                 break
 
@@ -208,9 +241,8 @@ async def ws_call(ws: WebSocket):
                          "Que siga muy bien.")
                 def _nudge(f=frase):
                     pcm, sr = tts.synthesize_cached(f)
-                    if pcm:
-                        send({"type": "audio_start", "sr": sr, "text": f})
-                        send(bytes(pcm))
+                    if pcm and not cancel.is_set():
+                        send_audio(sr, f, bytes(pcm))
                 threading.Thread(target=_nudge, daemon=True).start()
 
     watchdog_task = asyncio.create_task(silence_watchdog())
@@ -218,12 +250,12 @@ async def ws_call(ws: WebSocket):
     def speak(text: str, tm: metrics.TurnMetrics | None, cached: bool = False) -> None:
         """Sintetiza y envía una oración; marca primer audio si aplica."""
         pcm, sr = (tts.synthesize_cached if cached else tts.synthesize)(text)
-        if not pcm:
+        # el barge-in puede haber ocurrido DURANTE la síntesis: no pisar al paciente
+        if not pcm or cancel.is_set():
             return
         if tm is not None and "t_tts_first_audio" not in tm.d:
             tm.mark("tts_first_audio")
-        send({"type": "audio_start", "sr": sr, "text": text})
-        send(bytes(pcm))
+        send_audio(sr, text, bytes(pcm))
 
     def run_turn(audio: np.ndarray) -> None:
         try:
@@ -311,8 +343,11 @@ async def ws_call(ws: WebSocket):
             if msg.get("type") == "websocket.disconnect":
                 break
             if msg.get("text"):
-                data = json.loads(msg["text"])
-                if data.get("type") == "start":
+                try:
+                    data = json.loads(msg["text"])
+                except (ValueError, TypeError):
+                    continue  # frame malformado: ignorar, no tumbar la llamada
+                if data.get("type") == "start" and state is None:
                     p = data.get("patient", {})
                     state = CallState(Patient(
                         nombre=p.get("nombre", "Paciente"),
@@ -327,14 +362,19 @@ async def ws_call(ws: WebSocket):
                     def _greet(t=text):
                         st = tts.SentenceStreamer()
                         for sent in st.push(t):
+                            if cancel.is_set():
+                                break
                             speak(sent, None)
                         rest = st.flush()
-                        if rest:
+                        if rest and not cancel.is_set():
                             speak(rest, None)
                         send({"type": "agent_text", "text": t,
                               "triaje": "verde", "alerta": False})
                         send({"type": "turn_end"})
-                    threading.Thread(target=_greet, daemon=True).start()
+                    # registrado como worker: el saludo y un turno del paciente
+                    # no deben solaparse (audio entrelazado)
+                    worker = threading.Thread(target=_greet, daemon=True)
+                    worker.start()
                 elif data.get("type") == "end":
                     break
             elif msg.get("bytes") and state is not None:
@@ -348,16 +388,32 @@ async def ws_call(ws: WebSocket):
                     elif ev == "speech_end" and audio is not None:
                         last_activity["t"] = time.monotonic()
                         if worker is not None and worker.is_alive():
-                            continue  # aún procesando el turno anterior
+                            # NUNCA descartar lo que dijo el paciente: se encola
+                            # y el arranque se hace en cuanto muera el worker
+                            # (cancel ya está puesto por el barge-in)
+                            pending.append(audio)
+                            continue
                         cancel.clear()
                         worker = threading.Thread(
                             target=run_turn, args=(audio,), daemon=True)
+                        worker.start()
+                    if pending and (worker is None or not worker.is_alive()):
+                        cancel.clear()
+                        audio_pend = np.concatenate(pending)
+                        pending.clear()
+                        worker = threading.Thread(
+                            target=run_turn, args=(audio_pend,), daemon=True)
                         worker.start()
     except WebSocketDisconnect:
         pass
     finally:
         cancel.set()
         watchdog_task.cancel()
+        # esperar al turno en curso ANTES de resumir: si no, el resumen se
+        # genera leyendo un estado que el worker aún está mutando (y el último
+        # turno del paciente se perdería del registro clínico)
+        if worker is not None and worker.is_alive():
+            await asyncio.to_thread(worker.join, 20)
         if state is not None:
             summary = await asyncio.to_thread(close_call, state)
             try:

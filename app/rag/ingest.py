@@ -39,20 +39,38 @@ def detect_scenario(title: str, text: str) -> str:
     return best if scores[best] > 0 else "general"
 
 
+OCR_MAX_PAGES = int(__import__("os").getenv("POSTOP_OCR_MAX_PAGES", "40"))
+
+
 def _ocr_pdf(path: Path) -> fitz.Document:
-    """OCR página a página con tesseract; devuelve doc con texto extraíble."""
+    """OCR página a página con tesseract; devuelve doc con texto extraíble.
+
+    Acotado en páginas y en resolución: un escaneado enorme podía colgar la
+    petición HTTP decenas de minutos y un PDF con páginas gigantes reventaba
+    la RAM al rasterizar.
+    """
     doc = fitz.open(str(path))
     texts = []
     with tempfile.TemporaryDirectory() as td:
         for i, page in enumerate(doc):
-            pix = page.get_pixmap(dpi=200)
+            if i >= OCR_MAX_PAGES:
+                break
+            rect = page.rect
+            dpi = 200
+            # tope de ~4000 px de lado (protege de páginas de tamaño absurdo)
+            if max(rect.width, rect.height) * dpi / 72 > 4000:
+                dpi = int(4000 * 72 / max(rect.width, rect.height, 1))
+            pix = page.get_pixmap(dpi=max(72, dpi))
             img = Path(td) / f"p{i}.png"
             pix.save(str(img))
-            r = subprocess.run(
-                ["tesseract", str(img), "-", "-l", "spa+eng", "--psm", "1"],
-                capture_output=True, text=True, timeout=120,
-            )
-            texts.append(r.stdout)
+            try:
+                r = subprocess.run(
+                    ["tesseract", str(img), "-", "-l", "spa+eng", "--psm", "1"],
+                    capture_output=True, text=True, timeout=120,
+                )
+                texts.append(r.stdout if r.returncode == 0 else "")
+            except subprocess.TimeoutExpired:
+                texts.append("")  # una página lenta no invalida el documento
     out = fitz.open()
     for t in texts:
         p = out.new_page()
@@ -86,7 +104,9 @@ def _extract_sections_pdf(path: Path) -> tuple[list[dict], int, str]:
         sizes = []
         pages_blocks = []
         for p in range(doc.page_count):
-            blocks = doc[p].get_text("dict")["blocks"]
+            # TEXTFLAGS_TEXT: sin él, el dict incluye los BYTES de cada imagen
+            # → un PDF ilustrado de cientos de páginas retenía GB en RAM
+            blocks = doc[p].get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
             pages_blocks.append(blocks)
             for b in blocks:
                 for l in b.get("lines", []):
@@ -113,6 +133,7 @@ def _extract_sections_pdf(path: Path) -> tuple[list[dict], int, str]:
         cur["pagina_fin"] = doc.page_count
         if cur["texto"].strip():
             sections.append(cur)
+    doc.close()   # libera descriptores/memoria en ingestas masivas
     return sections, n_pages, sample
 
 

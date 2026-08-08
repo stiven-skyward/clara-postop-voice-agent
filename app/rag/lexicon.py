@@ -119,6 +119,11 @@ _ASR_TARGETS = [
     "barriga", "estómago", "pierna", "brazo", "pecho", "cicatriz",
 ]
 _ASR_NORM = {_norm(w): w for w in _ASR_TARGETS}
+_CRITICAL_TARGETS = {"desmayo", "sangrado", "pus", "vomito"}
+
+
+def _thresh(target_norm: str, base: float) -> float:
+    return max(base, 0.86) if target_norm in _CRITICAL_TARGETS else base
 # palabras comunes válidas que jamás deben "repararse" ni absorberse en uniones
 _KEEP = set("""si no un una la el de mi me al ya muy asi mas nada todo bien mal
 poco mucho mucha muchas muchos algo tengo tiene esta estoy fue por que como pero
@@ -130,6 +135,41 @@ va son esta estan para del""".split())
 
 def _ratio(a: str, b: str) -> float:
     return SequenceMatcher(None, a, b).ratio()
+
+
+# Vocabulario español real (dataset del reto + corpus clínico es): la reparación
+# SOLO puede tocar palabras fuera de este vocabulario. Sin esta compuerta, el
+# 15% de frases válidas resultaban dañadas ("sanando"→"sangrado", "marcó"→"mareo").
+from pathlib import Path as _Path
+
+_VOCAB: set[str] = set()
+try:
+    _VOCAB = set((_Path(__file__).parent / "vocab_es.txt").read_text(
+        encoding="utf-8").splitlines())
+except OSError:
+    pass
+
+
+def _in_vocab(w: str) -> bool:
+    if not _VOCAB:
+        return False  # sin vocabulario: se confía en umbrales (modo degradado)
+    if w in _VOCAB or w in _KEEP or w in _ASR_NORM:
+        return True
+    # tolerancia de plural: "punzadas" válida si "punzada" existe
+    base = w.rstrip("s")
+    if base in _VOCAB or base in _ASR_NORM:
+        return True
+    return w[:-2] in _VOCAB if w.endswith("es") else False
+
+
+def _same_lemma(w: str, target: str) -> bool:
+    """True si w es una flexión del target ('amarillenta' vs 'amarillento'):
+    comparten raíz larga. Reparar ahí solo cambiaría género/número — cosmética
+    que corrompe la transcripción sin aportar nada a la extracción."""
+    i = 0
+    while i < min(len(w), len(target)) and w[i] == target[i]:
+        i += 1
+    return i >= max(4, int(0.7 * len(target)))
 
 
 def repair_asr(text: str) -> tuple[str, list[str]]:
@@ -151,23 +191,23 @@ def repair_asr(text: str) -> tuple[str, list[str]]:
             joined = w + nxt
             # si la primera palabra es válida y la segunda se puede reparar
             # sola, NO unir (conserva artículos: "la erida" → "la herida")
-            nxt_single_ok = (len(nxt) >= 5 and nxt not in _KEEP and nxt not in _ASR_NORM
+            nxt_single_ok = (len(nxt) >= 5 and not _in_vocab(nxt)
                              and max((_ratio(nxt, t) for t in _ASR_NORM), default=0) >= 0.78)
             if (len(joined) >= 5 and w not in _ASR_NORM
-                    and nxt not in _ASR_NORM and nxt not in _KEEP and nxt
+                    and len(nxt) >= 3 and not _in_vocab(nxt)
                     and not (w in _KEEP and nxt_single_ok)):
                 best = max(_ASR_NORM, key=lambda t: _ratio(joined, t), default=None)
-                if best and _ratio(joined, best) >= 0.75:
+                if best and _ratio(joined, best) >= _thresh(best, 0.75):
                     fixed = _ASR_NORM[best]
                     trailing = re.sub(r"[\wáéíóúñü]", "", tokens[i + 1])
                     out.append(fixed + trailing)
                     repairs.append(f"{raw} {tokens[i+1]}→{fixed}")
                     i += 2
                     continue
-        # 2) palabra suelta ("fierebres" → "fiebre")
-        if len(w) >= 5 and w not in _KEEP and w not in _ASR_NORM:
+        # 2) palabra suelta ("fierebres" → "fiebre") — solo si NO es española válida
+        if len(w) >= 5 and not _in_vocab(w):
             best = max(_ASR_NORM, key=lambda t: _ratio(w, t), default=None)
-            if best and _ratio(w, best) >= 0.78:
+            if best and _ratio(w, best) >= _thresh(best, 0.74) and not _same_lemma(w, best):
                 fixed = _ASR_NORM[best]
                 trailing = re.sub(r"[\wáéíóúñü]", "", raw)
                 out.append(fixed + trailing)

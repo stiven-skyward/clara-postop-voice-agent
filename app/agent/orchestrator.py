@@ -95,7 +95,7 @@ def _next_checklist_hint(state: CallState) -> str | None:
 def _format_sources(sources: list[Source]) -> str:
     blocks = []
     for s in sources:
-        body = s.texto[:800]  # prefill acotado: latencia de voz en CPU
+        body = s.ventana(1200)  # ventana centrada en lo que casó; prefill acotado
         blocks.append(f"[{s.n}] «{s.titulo}» — sección: {s.seccion} "
                       f"(págs. {s.pagina_ini}-{s.pagina_fin})\n{body}")
     return "\n\n".join(blocks)
@@ -277,13 +277,17 @@ def process_turn(state: CallState, user_text: str,
                          "INSTRUCCIÓN PARA ESTE TURNO (no la menciones): " + " ".join(guidance)})
 
     parts: list[str] = []
-    for tok in llm.chat_stream(msgs, stats=stats):
-        parts.append(tok)
-        yield tok
-    reply = "".join(parts)
-
-    state.history.append({"role": "user", "content": user_text_final})
-    state.history.append({"role": "assistant", "content": reply})
+    try:
+        for tok in llm.chat_stream(msgs, stats=stats):
+            parts.append(tok)
+            yield tok
+    finally:
+        # el barge-in abandona el generador: el historial DEBE quedar
+        # consolidado igual (con lo parcial), o el siguiente turno no sabría
+        # qué dijo el paciente ni qué alcanzó a responder el agente
+        reply = "".join(parts)
+        state.history.append({"role": "user", "content": user_text_final})
+        state.history.append({"role": "assistant", "content": reply or "(interrumpido)"})
     # poda de historial: en voz el contexto clínico vive en SymptomState, no
     # hace falta arrastrar toda la conversación (prefill caro en CPU)
     if len(state.history) > 15:

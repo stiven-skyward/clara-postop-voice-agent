@@ -20,6 +20,10 @@ class Embedder:
         )
         self.tokenizer = Tokenizer.from_file(str(config.EMB_TOKENIZER))
         self.tokenizer.enable_truncation(max_length=512)
+        # tokenizer separado SIN truncación: enable_truncation afecta a todas
+        # las llamadas, y con él count_tokens() nunca superaba 512 → las
+        # secciones padre jamás se partían (chunks gigantes al prompt del LLM)
+        self.counter = Tokenizer.from_file(str(config.EMB_TOKENIZER))
 
     def _encode_batch(self, texts: list[str]) -> np.ndarray:
         encs = self.tokenizer.encode_batch(texts)
@@ -49,7 +53,7 @@ class Embedder:
         return self._encode_batch([f"query: {text}"])[0]
 
     def count_tokens(self, text: str) -> int:
-        return len(self.tokenizer.encode(text).ids)
+        return len(self.counter.encode(text).ids)
 
 
 _embedder: Embedder | None = None

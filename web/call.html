@@ -47,26 +47,45 @@ loadPatients();
 
 function log(who, text){
   const cls = who === 'Clara' ? 'agent' : 'patient';
-  $('log').insertAdjacentHTML('beforeend',
-    `<div class="turn ${cls}"><div class="who">${who}</div><div class="bubble">${text}</div></div>`);
+  // nodos con textContent: el texto viene del LLM/ASR y del Excel de pacientes
+  const turn = document.createElement('div'); turn.className = `turn ${cls}`;
+  const w = document.createElement('div'); w.className = 'who'; w.textContent = who;
+  const b = document.createElement('div'); b.className = 'bubble'; b.textContent = text;
+  turn.append(w, b);
+  $('log').appendChild(turn);
   $('log').scrollTop = $('log').scrollHeight;
 }
 
 const WORKLET = `
 class Cap extends AudioWorkletProcessor{
-  constructor(){super(); this.buf=[]; this.ratio=sampleRate/16000; this.acc=0;}
+  constructor(){super(); this.buf=[]; this.ratio=sampleRate/16000; this.pos=0; this.prev=0;}
   process(inputs){
     const ch = inputs[0][0]; if(!ch) return true;
-    for(let i=0;i<ch.length;i+=this.ratio){ this.buf.push(ch[Math.floor(i)]); }
+    // remuestreo con fase acumulada ENTRE bloques + interpolación lineal:
+    // sin conservar this.pos, un micrófono a 44.1 kHz (ratio 2.756) se
+    // desalineaba ~2% y degradaba la transcripción
+    while(this.pos < ch.length){
+      const i = Math.floor(this.pos), f = this.pos - i;
+      const a = i > 0 ? ch[i-1] : this.prev;
+      const b = ch[i];
+      this.buf.push(a + (b - a) * f);
+      this.pos += this.ratio;
+    }
+    this.pos -= ch.length;
+    this.prev = ch[ch.length-1];
     if(this.buf.length>=1024){ this.port.postMessage(new Float32Array(this.buf)); this.buf=[]; }
     return true;
   }
 }
 registerProcessor('cap', Cap);`;
 
+let playGen = 0, curSrc = null;
+
 function stopPlayback(){
+  playGen++;                       // invalida el drain en curso
   playQueue = [];
-  if(playing && playCtx){ playCtx.close(); playCtx = null; playing = false; }
+  if(curSrc){ try{ curSrc.stop(); }catch(e){} curSrc = null; }
+  playing = false;
 }
 
 function playPCM(int16, sr){
@@ -74,8 +93,9 @@ function playPCM(int16, sr){
   if(!playing) drain();
 }
 async function drain(){
+  const gen = ++playGen;           // token de generación de este drain
   playing = true;
-  while(playQueue.length){
+  while(playQueue.length && gen === playGen){
     const {int16, sr} = playQueue.shift();
     if(!playCtx || playCtx.state === 'closed') playCtx = new AudioContext({sampleRate: sr});
     const f32 = Float32Array.from(int16, v => v/32768);
@@ -83,9 +103,11 @@ async function drain(){
     buf.copyToChannel(f32, 0);
     const src = playCtx.createBufferSource();
     src.buffer = buf; src.connect(playCtx.destination);
+    curSrc = src;
     await new Promise(res => { src.onended = res; src.start(); });
+    curSrc = null;
   }
-  playing = false;
+  if(gen === playGen) playing = false;
 }
 
 $('btnStart').onclick = async () => {
