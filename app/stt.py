@@ -34,16 +34,33 @@ def get_model():
     return _model
 
 
+_HP_SOS = None
+
+
 def _enhance(audio: np.ndarray) -> np.ndarray:
     """Acondicionamiento para condiciones no ideales:
-    - remoción de componente DC (micrófonos baratos con offset);
-    - normalización de ganancia a pico 0.9 (voces débiles, micrófono lejano).
-    No se amplifica lo que es prácticamente silencio (evita subir ruido puro)."""
+    - paso-alto a 90 Hz: quita el retumbe (ventiladores, golpes de mesa, el
+      propio cuerpo del micrófono) que en micrófonos de portátil llega a
+      dominar el 66 % de la energía y enmascara la voz;
+    - normalización de ganancia (voces débiles o micrófono lejano);
+    - limitador suave en vez de recorte duro, que introduce distorsión.
+    """
+    global _HP_SOS
     audio = audio - float(np.mean(audio))
+    if audio.size > 64:
+        try:
+            from scipy import signal
+            if _HP_SOS is None:
+                _HP_SOS = signal.butter(4, 90, btype="high", fs=16000, output="sos")
+            audio = signal.sosfiltfilt(_HP_SOS, audio.astype(np.float64)).astype(np.float32)
+        except Exception:
+            pass
     peak = float(np.max(np.abs(audio))) or 1.0
-    if peak < 0.05:
+    if peak < 0.02:          # prácticamente silencio: no amplificar ruido puro
         return audio
-    return np.clip(audio * (0.9 / peak), -1.0, 1.0)
+    # normaliza a 0.85 y comprime picos con tanh (evita el recorte cuadrado)
+    g = 0.85 / peak
+    return np.tanh(audio * g * 1.1).astype(np.float32)
 
 
 def _norm_basura(s: str) -> str:

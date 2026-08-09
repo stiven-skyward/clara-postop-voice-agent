@@ -355,10 +355,11 @@ async def ws_call(ws: WebSocket):
                     if num not in text.lower():
                         tm.set(numero_corregido=[text, num])
                     text = num
-                elif len(text.split()) <= 2:
-                    # respuesta corta que NO se reconoce como número tras pedir
-                    # la escala: preferible volver a preguntar que adivinar mal
-                    text = ""
+                else:
+                    # sin número reconocido se deja pasar el texto tal cual:
+                    # "muy bien", "casi nada" o "poquito" son respuestas
+                    # legítimas a la escala y el agente pedirá el número si
+                    # hace falta. Descartarlas dejaba al paciente sin voz.
                     tm.set(numero_no_reconocido=True)
             text, reparaciones = repair_asr(text)
             if reparaciones:
