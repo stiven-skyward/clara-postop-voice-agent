@@ -442,8 +442,16 @@ async def ws_call(ws: WebSocket):
                     def _txt(v, por_defecto, limite=80):
                         return str(v)[:limite] if isinstance(v, (str, int, float)) and str(v).strip() else por_defecto
 
-                    sr_mic = _int(p.get("sample_rate") or data.get("sample_rate"), 16000)
-                    resampler["r"] = StreamingResampler(sr_mic if 8000 <= sr_mic <= 192000 else 16000)
+                    # OJO: no usar _int aquí — está acotado a 0-200 (edad) y
+                    # convertiría 48000 en 200, dejando el audio sin remuestrear
+                    try:
+                        sr_mic = int(float(data.get("sample_rate") or 48000))
+                    except (TypeError, ValueError):
+                        sr_mic = 48000
+                    if not (8000 <= sr_mic <= 192000):
+                        sr_mic = 48000
+                    resampler["r"] = StreamingResampler(sr_mic)
+                    send({"type": "audio_info", "sample_rate": sr_mic})
                     state = CallState(Patient(
                         nombre=_txt(p.get("nombre"), "Paciente"),
                         edad=_int(p.get("edad"), 50),
