@@ -69,7 +69,8 @@ def greeting(state: CallState) -> str:
         f"de su clínica. Le llamo para saber cómo sigue después de su "
         f"{p.procedimiento.lower()}, que fue hace {p.dia_postop} "
         f"día{'s' if p.dia_postop != 1 else ''}. "
-        f"Para empezar, ¿cómo ha estado el dolor? De 0 a 10, ¿en cuánto lo siente?"
+        f"Para empezar, ¿cómo ha estado el dolor? Dígame un número del cero al diez, "
+        f"por ejemplo: «el dolor está en cinco»."
     )
     state.history.append({"role": "system", "content": _system_prompt(p)})
     state.history.append({"role": "assistant", "content": text})

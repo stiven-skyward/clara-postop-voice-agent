@@ -47,14 +47,6 @@ def _enhance(audio: np.ndarray) -> np.ndarray:
     """
     global _HP_SOS
     audio = audio - float(np.mean(audio))
-    if audio.size > 64:
-        try:
-            from scipy import signal
-            if _HP_SOS is None:
-                _HP_SOS = signal.butter(4, 90, btype="high", fs=16000, output="sos")
-            audio = signal.sosfiltfilt(_HP_SOS, audio.astype(np.float64)).astype(np.float32)
-        except Exception:
-            pass
     peak = float(np.max(np.abs(audio))) or 1.0
     if peak < 0.02:          # prácticamente silencio: no amplificar ruido puro
         return audio

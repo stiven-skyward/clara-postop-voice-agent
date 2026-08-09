@@ -74,7 +74,7 @@ class StreamingVAD:
                     self._silence_ms = 0.0
             else:
                 self._pre.append(chunk)
-                if len(self._pre) > 10:
+                if len(self._pre) > 20:   # 640 ms de pre-roll: no cortar el ataque
                     self._pre.pop(0)
                 if p >= config.VAD_THRESHOLD:
                     self._in_speech = True

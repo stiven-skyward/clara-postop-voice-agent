@@ -65,6 +65,26 @@ class StreamingResampler:
         return out
 
 
+class StreamingHighPass:
+    """Paso-alto de 90 Hz con estado, para el flujo continuo.
+
+    Debe aplicarse ANTES del control de ganancia: en micrófonos de portátil el
+    retumbe (mesa, ventilador, manejo del cable) llega a ser el 60 % de la
+    energía, y si se amplifica primero, la ganancia se calcula sobre el ruido
+    y la voz queda enterrada.
+    """
+
+    def __init__(self, fs: int = DESTINO, corte: float = 90.0) -> None:
+        self.sos = signal.butter(4, corte, btype="high", fs=fs, output="sos")
+        self.zi = signal.sosfilt_zi(self.sos) * 0.0
+
+    def process(self, x: np.ndarray) -> np.ndarray:
+        if x.size == 0:
+            return x
+        y, self.zi = signal.sosfilt(self.sos, x.astype(np.float64), zi=self.zi)
+        return y.astype(np.float32)
+
+
 class AGC:
     """Control automático de ganancia en tiempo real.
 
@@ -77,7 +97,7 @@ class AGC:
     ganancia necesaria para llevar la voz a un nivel de trabajo sano.
     """
 
-    def __init__(self, objetivo: float = 0.5, ganancia_max: float = 20.0) -> None:
+    def __init__(self, objetivo: float = 0.45, ganancia_max: float = 12.0) -> None:
         self.objetivo = objetivo
         self.ganancia_max = ganancia_max
         self.nivel = 0.0

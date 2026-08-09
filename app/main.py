@@ -25,7 +25,7 @@ from app.agent.orchestrator import CallState, Patient, close_call, greeting, pro
 from app.rag import ingest
 from app.rag.lexicon import interpretar_numero_hablado, repair_asr
 from app.rag.store import get_store
-from app.audio import AGC, StreamingResampler, calidad as calidad_audio
+from app.audio import AGC, StreamingHighPass, StreamingResampler, calidad as calidad_audio
 from app.vad import StreamingVAD
 
 app = FastAPI(title="Agente de seguimiento postoperatorio")
@@ -244,7 +244,7 @@ async def ws_call(ws: WebSocket):
     state: CallState | None = None
     worker: threading.Thread | None = None
     pending: list = []   # audio del paciente recibido mientras el turno corría
-    resampler = {"r": None, "agc": AGC()}   # se crean al conocer la frecuencia
+    resampler = {"r": None, "hp": StreamingHighPass(), "agc": AGC()}
 
     def send(msg) -> None:  # llamable desde hilos
         loop.call_soon_threadsafe(out_q.put_nowait, msg)
@@ -452,6 +452,7 @@ async def ws_call(ws: WebSocket):
                     if not (8000 <= sr_mic <= 192000):
                         sr_mic = 48000
                     resampler["r"] = StreamingResampler(sr_mic)
+                    resampler["hp"] = StreamingHighPass()
                     resampler["agc"] = AGC()
                     send({"type": "audio_info", "sample_rate": sr_mic})
                     state = CallState(Patient(
@@ -500,8 +501,10 @@ async def ws_call(ws: WebSocket):
                     samples = resampler["r"].process(samples)
                     if samples.size == 0:
                         continue
-                    # ganancia ANTES del VAD: con micrófonos flojos el detector
-                    # solo veía las vocales y cortaba la frase por la mitad
+                    # ORDEN CRÍTICO: quitar retumbe → ganancia → detectar voz.
+                    # Al revés, la ganancia se calculaba sobre el ruido grave
+                    # (hasta el 63 % de la energía) y enterraba la voz.
+                    samples = resampler["hp"].process(samples)
                     samples = resampler["agc"].process(samples)
                 for ev, audio in vad.feed(samples):
                     if ev == "speech_start":

@@ -189,6 +189,10 @@ _NUM_VARIANTES = {
     "quatro": "cuatro", "cuatr": "cuatro", "kuatro": "cuatro",
     "sinco": "cinco", "zinco": "cinco", "cincoo": "cinco",
     "diescy": "diez", "dies": "diez", "diaz": "diez",
+    "choco": "ocho", "chocho": "ocho", "nocho": "ocho", "ochop": "ocho",
+    "noche": "ocho", "bocho": "ocho", "otro": "ocho",
+    "baby": "nueve", "nube": "nueve", "llueve": "nueve", "nuece": "nueve",
+    "sais": "seis", "vez": "diez", "die": "diez", "cinc": "cinco",
     "trez": "tres", "tress": "tres", "dose": "doce",
 }
 
