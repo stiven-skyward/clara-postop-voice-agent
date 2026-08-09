@@ -62,6 +62,8 @@ VAD_MAX_UTTERANCE_S = float(os.getenv("POSTOP_VAD_MAX_UTTERANCE_S", "30"))
 # segundos de silencio del paciente (contados DESDE que Clara deja de hablar)
 # antes de que el agente retome la conversación
 SILENCIO_S = float(os.getenv("POSTOP_SILENCIO_S", "20"))
+# diagnóstico: guarda en data/logs/audio/ lo que llega del navegador
+GUARDAR_AUDIO = os.getenv("POSTOP_GUARDAR_AUDIO", "0") == "1"
 
 # --- RAG ---
 EMB_MODEL = MODELS_DIR / "e5-small-q8.onnx"

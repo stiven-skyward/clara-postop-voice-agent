@@ -17,7 +17,7 @@ import uuid
 from pathlib import Path
 
 import numpy as np
-from fastapi import FastAPI, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 
 from app import config, llm, metrics, stt, tts
@@ -25,6 +25,7 @@ from app.agent.orchestrator import CallState, Patient, close_call, greeting, pro
 from app.rag import ingest
 from app.rag.lexicon import interpretar_numero_hablado, repair_asr
 from app.rag.store import get_store
+from app.audio import StreamingResampler, calidad as calidad_audio
 from app.vad import StreamingVAD
 
 app = FastAPI(title="Agente de seguimiento postoperatorio")
@@ -40,6 +41,20 @@ def _startup() -> None:
     threading.Thread(target=stt.get_model, daemon=True).start()
     threading.Thread(target=_warm_tts_phrases, daemon=True).start()
     threading.Thread(target=_warm_llm, daemon=True).start()
+
+
+def _guardar_wav(audio: np.ndarray, call_id: str, turno: int) -> None:
+    """Guarda el audio recibido del navegador (diagnóstico del camino de voz)."""
+    try:
+        import wave
+        d = config.LOGS_DIR / "audio"
+        d.mkdir(parents=True, exist_ok=True)
+        pcm = np.clip(audio * 32767, -32768, 32767).astype(np.int16)
+        with wave.open(str(d / f"{call_id}_t{turno}.wav"), "wb") as w:
+            w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+            w.writeframes(pcm.tobytes())
+    except Exception:
+        pass
 
 
 def _warm_tts_phrases() -> None:
@@ -86,6 +101,36 @@ def index():
 @app.get("/admin")
 def admin():
     return FileResponse(WEB / "admin.html")
+
+
+@app.get("/micro")
+def micro():
+    """Página de autodiagnóstico del micrófono."""
+    return FileResponse(WEB / "micro.html")
+
+
+@app.post("/api/test-micro")
+async def test_micro(request: Request, sr: int = 48000):
+    """Recibe audio crudo del navegador y devuelve qué se entendió y con qué
+    calidad llegó. Permite al usuario verificar su micrófono sin hacer una
+    llamada completa."""
+    raw = await request.body()
+    if len(raw) < 4:
+        return {"error": "sin audio"}
+    x = np.frombuffer(raw[:len(raw) - len(raw) % 4], dtype=np.float32)
+    x = np.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
+    r = StreamingResampler(sr if 8000 <= sr <= 192000 else 48000)
+    a = r.process(x)
+    texto = await asyncio.to_thread(stt.transcribe, a)
+    import base64
+    import io
+    import wave as _w
+    buf = io.BytesIO()
+    with _w.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000)
+        w.writeframes(np.clip(a * 32767, -32768, 32767).astype(np.int16).tobytes())
+    return {"texto": texto, "calidad": calidad_audio(a),
+            "wav": base64.b64encode(buf.getvalue()).decode()}
 
 
 # ---------- Consola de administración (G5: conocimiento vivo) ----------
@@ -199,6 +244,7 @@ async def ws_call(ws: WebSocket):
     state: CallState | None = None
     worker: threading.Thread | None = None
     pending: list = []   # audio del paciente recibido mientras el turno corría
+    resampler = {"r": None}   # se crea al conocer la frecuencia del micrófono
 
     def send(msg) -> None:  # llamable desde hilos
         loop.call_soon_threadsafe(out_q.put_nowait, msg)
@@ -294,6 +340,9 @@ async def ws_call(ws: WebSocket):
         # la última pregunta de Clara sesga el decodificador de whisper
         last_q = next((m["content"] for m in reversed(state.history)
                        if m["role"] == "assistant"), None)
+        tm.set(audio=calidad_audio(audio))
+        if config.GUARDAR_AUDIO:
+            _guardar_wav(audio, state.call_id, state.turno + 1)
         text = stt.transcribe(audio, context=last_q)
         tm.mark("stt_done")
         if text:
@@ -393,6 +442,8 @@ async def ws_call(ws: WebSocket):
                     def _txt(v, por_defecto, limite=80):
                         return str(v)[:limite] if isinstance(v, (str, int, float)) and str(v).strip() else por_defecto
 
+                    sr_mic = _int(p.get("sample_rate") or data.get("sample_rate"), 16000)
+                    resampler["r"] = StreamingResampler(sr_mic if 8000 <= sr_mic <= 192000 else 16000)
                     state = CallState(Patient(
                         nombre=_txt(p.get("nombre"), "Paciente"),
                         edad=_int(p.get("edad"), 50),
@@ -434,6 +485,11 @@ async def ws_call(ws: WebSocket):
                 samples = np.frombuffer(raw[:len(raw) - len(raw) % 4], dtype=np.float32)
                 if not np.all(np.isfinite(samples)):
                     samples = np.nan_to_num(samples, nan=0.0, posinf=0.0, neginf=0.0)
+                if resampler["r"] is not None:
+                    # a 16 kHz con filtro anti-aliasing (ver app/audio.py)
+                    samples = resampler["r"].process(samples)
+                    if samples.size == 0:
+                        continue
                 for ev, audio in vad.feed(samples):
                     if ev == "speech_start":
                         cancel.set()  # barge-in: corta la síntesis en curso

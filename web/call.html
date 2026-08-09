@@ -56,24 +56,17 @@ function log(who, text){
   $('log').scrollTop = $('log').scrollHeight;
 }
 
+// El worklet NO remuestrea: solo empaqueta el audio tal cual sale del
+// micrófono. El servidor lo baja a 16 kHz con un filtro anti-aliasing real;
+// hacerlo aquí, quitando muestras, destruía las consonantes (f, s, ch) y el
+// reconocedor confundía «fiebre» con «nombre».
 const WORKLET = `
 class Cap extends AudioWorkletProcessor{
-  constructor(){super(); this.buf=[]; this.ratio=sampleRate/16000; this.pos=0; this.prev=0;}
+  constructor(){super(); this.buf=[];}
   process(inputs){
     const ch = inputs[0][0]; if(!ch) return true;
-    // remuestreo con fase acumulada ENTRE bloques + interpolación lineal:
-    // sin conservar this.pos, un micrófono a 44.1 kHz (ratio 2.756) se
-    // desalineaba ~2% y degradaba la transcripción
-    while(this.pos < ch.length){
-      const i = Math.floor(this.pos), f = this.pos - i;
-      const a = i > 0 ? ch[i-1] : this.prev;
-      const b = ch[i];
-      this.buf.push(a + (b - a) * f);
-      this.pos += this.ratio;
-    }
-    this.pos -= ch.length;
-    this.prev = ch[ch.length-1];
-    if(this.buf.length>=1024){ this.port.postMessage(new Float32Array(this.buf)); this.buf=[]; }
+    for(let i=0;i<ch.length;i++) this.buf.push(ch[i]);
+    if(this.buf.length>=2048){ this.port.postMessage(new Float32Array(this.buf)); this.buf=[]; }
     return true;
   }
 }
@@ -127,14 +120,18 @@ $('btnStart').onclick = async () => {
           + 'http://localhost:8000 (no por dirección IP): el micrófono solo se '
           + 'permite en orígenes seguros.');
       }
-      ws.send(JSON.stringify({type:'start', patient:p}));
-      ac = new AudioContext();
-      mic = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}});
+      mic = await navigator.mediaDevices.getUserMedia({audio:{
+        echoCancellation:true, noiseSuppression:true, autoGainControl:true,
+        channelCount:1}});
+      ac = new AudioContext();   // frecuencia nativa: sin conversiones ocultas
+      // el servidor necesita saber a qué frecuencia viene el audio
+      ws.send(JSON.stringify({type:'start', patient:p, sample_rate: ac.sampleRate}));
       await ac.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET],{type:'text/javascript'})));
       const srcNode = ac.createMediaStreamSource(mic);
       workletNode = new AudioWorkletNode(ac,'cap');
       workletNode.port.onmessage = e => { if(ws.readyState===1) ws.send(e.data.buffer); };
       srcNode.connect(workletNode);
+      console.log('[audio] micrófono a', ac.sampleRate, 'Hz →  servidor remuestrea a 16 kHz');
       if(ac.state === 'suspended') await ac.resume();
       $('status').textContent = 'en llamada — hable con naturalidad';
       $('btnStart').disabled = true; $('btnEnd').disabled = false;

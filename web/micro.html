@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba de micrófono</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:760px;margin:1.5rem auto;padding:0 1rem;background:#f7f8fa;color:#1c2330}
+  h1{font-size:1.25rem}
+  button{font-size:1rem;padding:.6rem 1.1rem;border-radius:8px;border:none;background:#0b57d0;color:#fff;cursor:pointer}
+  button:disabled{opacity:.5;cursor:default}
+  #res{background:#fff;border:1px solid #e2e5ea;border-radius:10px;padding:1rem;margin-top:1rem;min-height:60px}
+  .met{display:inline-block;background:#eef3fe;border-radius:8px;padding:.3rem .6rem;margin:.2rem .3rem .2rem 0;font-size:.85rem}
+  .ok{background:#d6f2dd;color:#0a6b2d}.mal{background:#fbd9d3;color:#a1160a}
+  .txt{font-size:1.15rem;margin:.6rem 0;padding:.6rem;background:#f8fafc;border-radius:8px}
+  a{color:#0b57d0}
+</style>
+</head>
+<body>
+<h1>🎙️ Prueba de micrófono <a href="/" style="float:right;font-size:.85rem">← ir a la llamada</a></h1>
+<p>Pulse el botón y diga con normalidad: <b>«Anoche tuve fiebre y me duele la herida»</b>.
+Se graban 5 segundos y se le muestra exactamente qué entendió el sistema y con qué calidad llegó su voz.</p>
+<button id="btn">Grabar 5 segundos</button>
+<div id="res">Sin pruebas todavía.</div>
+<audio id="play" controls style="width:100%;margin-top:.8rem;display:none"></audio>
+
+<script>
+const $ = id => document.getElementById(id);
+const WORKLET = `
+class Cap extends AudioWorkletProcessor{
+  constructor(){super(); this.buf=[];}
+  process(inputs){
+    const ch = inputs[0][0]; if(!ch) return true;
+    for(let i=0;i<ch.length;i++) this.buf.push(ch[i]);
+    if(this.buf.length>=2048){ this.port.postMessage(new Float32Array(this.buf)); this.buf=[]; }
+    return true;
+  }
+}
+registerProcessor('cap', Cap);`;
+
+$('btn').onclick = async () => {
+  $('btn').disabled = true; $('res').textContent = 'Grabando… hable ahora.';
+  try{
+    const mic = await navigator.mediaDevices.getUserMedia({audio:{
+      echoCancellation:true, noiseSuppression:true, autoGainControl:true, channelCount:1}});
+    const ac = new AudioContext();
+    await ac.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET],{type:'text/javascript'})));
+    const src = ac.createMediaStreamSource(mic);
+    const node = new AudioWorkletNode(ac,'cap');
+    const trozos = [];
+    node.port.onmessage = e => trozos.push(e.data);
+    src.connect(node);
+    await new Promise(r => setTimeout(r, 5000));
+    mic.getTracks().forEach(t=>t.stop()); await ac.close();
+
+    let n = trozos.reduce((s,t)=>s+t.length,0);
+    const todo = new Float32Array(n); let o=0;
+    for(const t of trozos){ todo.set(t,o); o+=t.length; }
+    $('res').textContent = 'Procesando…';
+    const r = await fetch('/api/test-micro?sr=' + ac.sampleRate, {
+      method:'POST', headers:{'Content-Type':'application/octet-stream'}, body: todo.buffer});
+    const d = await r.json();
+    const q = d.calidad || {};
+    const bien = t => t ? 'met ok' : 'met mal';
+    $('res').innerHTML = '';
+    const t = document.createElement('div'); t.className='txt';
+    t.textContent = d.texto ? '“' + d.texto + '”' : '(no se entendió nada)';
+    $('res').appendChild(t);
+    const m = document.createElement('div');
+    m.innerHTML =
+      `<span class="met">micrófono: ${ac.sampleRate} Hz</span>` +
+      `<span class="${bien(q.duracion_s>0.5)}">duración ${q.duracion_s}s</span>` +
+      `<span class="${bien(q.rms>0.01)}">volumen ${q.rms}</span>` +
+      `<span class="${bien(q.pct_voz_300_3k>45)}">banda de voz ${q.pct_voz_300_3k}%</span>` +
+      `<span class="${bien(q.pct_retumbe_0_300<45)}">retumbe grave ${q.pct_retumbe_0_300}%</span>`;
+    $('res').appendChild(m);
+    const diag = document.createElement('p');
+    diag.style.marginTop = '.7rem';
+    diag.textContent = d.texto
+      ? '✔ El sistema le escucha correctamente. Ya puede usar la llamada.'
+      : (q.rms < 0.01
+          ? '⚠ Volumen muy bajo: acerque el micrófono o suba su ganancia en Windows.'
+          : '⚠ Se recibió sonido pero no se reconoció habla. Pruebe otro micrófono o hable más cerca.');
+    $('res').appendChild(diag);
+    if(d.wav){ $('play').src = 'data:audio/wav;base64,' + d.wav; $('play').style.display='block'; }
+  }catch(err){
+    $('res').textContent = '⚠ ' + (err.name === 'NotAllowedError'
+      ? 'Permiso de micrófono denegado. Habilítelo en el candado de la barra de direcciones.'
+      : (err.message || err));
+  }
+  $('btn').disabled = false;
+};
+</script>
+</body>
+</html>
