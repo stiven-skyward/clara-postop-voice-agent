@@ -65,6 +65,38 @@ class StreamingResampler:
         return out
 
 
+class AGC:
+    """Control automático de ganancia en tiempo real.
+
+    Sin esto, un micrófono flojo (pico 0.12 en vez de 0.6) llega tan débil que
+    el detector de voz solo reconoce como habla los picos de las vocales: las
+    consonantes caen bajo el umbral, el turno se corta a media frase y el
+    reconocedor recibe un fragmento suelto sobre el que inventa.
+
+    Se estima el nivel de pico con ataque rápido y caída lenta, y se aplica la
+    ganancia necesaria para llevar la voz a un nivel de trabajo sano.
+    """
+
+    def __init__(self, objetivo: float = 0.5, ganancia_max: float = 20.0) -> None:
+        self.objetivo = objetivo
+        self.ganancia_max = ganancia_max
+        self.nivel = 0.0
+        self.ganancia = 1.0
+
+    def process(self, x: np.ndarray) -> np.ndarray:
+        if x.size == 0:
+            return x
+        pico = float(np.max(np.abs(x)))
+        # ataque rápido (sube al instante), caída lenta (no bombea entre sílabas)
+        self.nivel = max(pico, self.nivel * 0.995)
+        if self.nivel > 0.005:                      # hay señal, no silencio puro
+            deseada = min(self.objetivo / self.nivel, self.ganancia_max)
+            # suavizado para que la ganancia no salte de bloque a bloque
+            self.ganancia += 0.25 * (deseada - self.ganancia)
+        self.ganancia = float(np.clip(self.ganancia, 1.0, self.ganancia_max))
+        return np.tanh(x * self.ganancia * 1.05).astype(np.float32)
+
+
 def calidad(audio16k: np.ndarray) -> dict:
     """Métricas de calidad del audio recibido, para diagnóstico en los logs."""
     if audio16k.size < 800:
