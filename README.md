@@ -28,7 +28,8 @@ opcional `tesseract-ocr tesseract-ocr-spa` para PDFs escaneados.
 > ingesta y la carga de modelos son varias veces más rápidas.
 
 ```bash
-git clone <URL-DE-ESTE-REPO> && cd postop-voice-agent
+git clone https://github.com/stiven-skyward/clara-postop-voice-agent.git
+cd clara-postop-voice-agent
 
 # 1) Dependencias (1-2 min)
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
@@ -174,4 +175,5 @@ docs/           reglas fijas del reto, decisiones de arquitectura (ADR), investi
 ```bash
 .venv/bin/python scripts/eval_triage.py      # triaje vs label_ground_truth del dataset
 .venv/bin/python scripts/e2e_test.py         # llamada completa sintética vía WebSocket
+.venv/bin/python scripts/demo_battery.py     # batería de pacientes del demo (servidor en marcha)
 ```

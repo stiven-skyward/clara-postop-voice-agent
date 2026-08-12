@@ -26,7 +26,7 @@ flowchart LR
     WSC --> SPK[Reproducción<br/>por oraciones]
   end
   subgraph SRV[Servidor local — 100% CPU]
-    WSC --> VAD["Silero VAD ONNX (app/vad.py)<br/>fin de habla: 500 ms de silencio"]
+    WSC --> VAD["Silero VAD ONNX (app/vad.py)<br/>fin de habla: 800 ms de silencio"]
     VAD --> STT["whisper.cpp small-q5 es (app/stt.py)<br/>initial_prompt léxico médico"]
     STT --> ORQ["Orquestador (app/agent/orchestrator.py)"]
     ORQ --> LLM["llama-server · Llama 3.2 3B Q4_K_M<br/>(app/llm.py) chat streaming + JSON-schema"]
