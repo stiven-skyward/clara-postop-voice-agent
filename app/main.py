@@ -23,7 +23,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from app import config, llm, metrics, stt, tts
 from app.agent.orchestrator import CallState, Patient, close_call, greeting, process_turn
 from app.rag import ingest
-from app.rag.lexicon import interpretar_numero_hablado, repair_asr
+from app.rag.lexicon import (interpretar_confirmacion,
+                             interpretar_numero_hablado, repair_asr)
 from app.rag.store import get_store
 from app.audio import AGC, StreamingHighPass, StreamingResampler, calidad as calidad_audio
 from app.vad import StreamingVAD
@@ -346,10 +347,23 @@ async def ws_call(ws: WebSocket):
         text = stt.transcribe(audio, context=last_q)
         tm.mark("stt_done")
         if text:
+            # Whisper suele colgar un "?" a oraciones declarativas; eso no es
+            # una duda del paciente y no debe activar RAG.
+            if text.rstrip().endswith("?") and not re.search(
+                    r"¿|\b(?:qué|cómo|cuándo|dónde|por qué|para qué|puedo|"
+                    r"debo|debería|me puedo|es normal|una pregunta)\b",
+                    text, re.I):
+                text = text.rstrip().rstrip("?").rstrip() + "."
+                tm.set(asr_interrogante_espurea=True)
+            confirmacion = interpretar_confirmacion(text, last_q)
+            if confirmacion:
+                if confirmacion.lower() != text.lower():
+                    tm.set(confirmacion_corregida=[text, confirmacion])
+                text = confirmacion
             # si Clara acaba de pedir la escala de dolor y la respuesta es corta,
             # se resuelve fonéticamente contra los números (whisper convierte
             # "seis" en "Sais" y "ocho" en "Achoo" con audio de medio segundo)
-            if last_q and re.search(r"0 a 10|cero a diez|escala", last_q):
+            elif last_q and re.search(r"0 a 10|cero a diez|escala", last_q):
                 num = interpretar_numero_hablado(text)
                 if num:
                     if num not in text.lower():
@@ -524,13 +538,16 @@ async def ws_call(ws: WebSocket):
                         worker = threading.Thread(
                             target=run_turn, args=(audio,), daemon=True)
                         worker.start()
-                    if pending and (worker is None or not worker.is_alive()):
-                        cancel.clear()
-                        audio_pend = np.concatenate(pending)
-                        pending.clear()
-                        worker = threading.Thread(
-                            target=run_turn, args=(audio_pend,), daemon=True)
-                        worker.start()
+                # Debe ejecutarse aunque este chunk no produzca eventos VAD.
+                # Antes, hablar durante el saludo encolaba el turno y podía
+                # dejarlo bloqueado hasta que el paciente volviera a hablar.
+                if pending and (worker is None or not worker.is_alive()):
+                    cancel.clear()
+                    audio_pend = np.concatenate(pending)
+                    pending.clear()
+                    worker = threading.Thread(
+                        target=run_turn, args=(audio_pend,), daemon=True)
+                    worker.start()
     except WebSocketDisconnect:
         pass
     finally:

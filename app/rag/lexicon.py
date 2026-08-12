@@ -223,6 +223,37 @@ def interpretar_numero_hablado(text: str) -> str | None:
     return None
 
 
+_CONFIRMACION_PREGUNTA = re.compile(
+    r"qued[oó] claro|me confirma|entendi[oó]|comprendi[oó]|de acuerdo",
+    re.IGNORECASE)
+_CONFIRMACION_SI = re.compile(
+    r"\b(?:s[ií]|claro|entend[ií]|entendido|comprend[ií]|de acuerdo|correcto)\b"
+    r"|(?:y\s+)?se?\s+qued[ea]\s+(?:a\s+un\s+lado|claro)",
+    re.IGNORECASE)
+_CONFIRMACION_NO = re.compile(
+    r"\bno\b.{0,30}\b(?:qued[oó]\s+claro|entend[ií]|comprend[ií]|de acuerdo)\b"
+    r"|\b(?:repita|rep[ií]tame|otra vez|no entend[ií])\b",
+    re.IGNORECASE)
+
+
+def interpretar_confirmacion(text: str, pregunta_agente: str | None) -> str | None:
+    """Normaliza respuestas sí/no SOLO cuando Clara acaba de pedir confirmación.
+
+    Incluye variantes observadas del ASR («y se quede a un lado» por
+    «sí, quedó claro»). Fuera de ese contexto no modifica el habla.
+    """
+    if not pregunta_agente or not _CONFIRMACION_PREGUNTA.search(pregunta_agente):
+        return None
+    limpio = re.sub(r"\s+", " ", text.strip())
+    if not limpio or len(limpio.split()) > 10:
+        return None
+    if _CONFIRMACION_NO.search(limpio):
+        return "No, no me quedó claro."
+    if _CONFIRMACION_SI.search(limpio):
+        return "Sí, quedó claro."
+    return None
+
+
 def repair_asr(text: str) -> tuple[str, list[str]]:
     """Repara palabras irreconocibles acercándolas al léxico clínico.
     Devuelve (texto_reparado, lista_de_reparaciones)."""

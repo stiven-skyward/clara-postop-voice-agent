@@ -73,6 +73,13 @@ _BASURA = {
 # velocidad de habla imposible: por encima de esto, whisper está "continuando"
 # el prompt en vez de transcribir (alucinación típica con audio corto o ruidoso)
 _MAX_CAR_POR_SEG = 25.0
+_CONFIRMATION_CONTEXT = re.compile(
+    r"qued[oó] claro|me confirma|entendi[oó]|comprendi[oó]|de acuerdo",
+    re.IGNORECASE)
+_CONFIRMATION_PROMPT = (
+    "Confirmación del paciente. Sí, quedó claro. No, no me quedó claro. "
+    "Repítamelo, por favor."
+)
 
 
 def transcribe(audio_f32_16k: np.ndarray, context: str | None = None) -> str:
@@ -96,8 +103,11 @@ def transcribe(audio_f32_16k: np.ndarray, context: str | None = None) -> str:
     if dur < 1.0:
         audio = np.concatenate([audio, np.zeros(int(16000 * (1.0 - dur)), np.float32)])
 
-    # (1) con respuestas cortas ("seis", "sí") el prompt largo domina y alucina
-    if dur >= 1.6:
+    # (1) Las respuestas breves se decodifican según el tipo de dato pedido.
+    # Un prompt libre hacía «sí, quedó claro» → «y se quede a un lado».
+    if context and _CONFIRMATION_CONTEXT.search(context):
+        prompt = _CONFIRMATION_PROMPT
+    elif dur >= 1.6:
         prompt = config.STT_PROMPT + (f" Agente: {context[:140]}" if context else "")
     elif dur >= 0.8:
         prompt = config.STT_PROMPT_CORTO

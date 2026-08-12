@@ -50,6 +50,9 @@ $('btn').onclick = async () => {
     const trozos = [];
     node.port.onmessage = e => trozos.push(e.data);
     src.connect(node);
+    // Sin una ruta al destino algunos navegadores dejan de procesar el grafo.
+    // El worklet no escribe salida, por lo que esta conexión reproduce silencio.
+    node.connect(ac.destination);
     await new Promise(r => setTimeout(r, 5000));
     mic.getTracks().forEach(t=>t.stop()); await ac.close();
 

@@ -74,6 +74,7 @@ _MINIMIZATION = re.compile(
 def sanitize_extraction(ext: dict, user_text: str) -> dict:
     tn = _norm(user_text)
     out = dict(ext)
+    grounded = fallback_extract(user_text)
     for field_name, pattern in _GROUNDING.items():
         if out.get(field_name) is True and not re.search(pattern, tn):
             out.pop(field_name)
@@ -92,13 +93,21 @@ def sanitize_extraction(ext: dict, user_text: str) -> dict:
     dolor = out.get("dolor_nrs")
     if dolor is not None:
         sin_dominio = not re.search(r"dolor|duele|molest|adolori|escala|punzad|arde", tn)
-        respaldo = fallback_extract(user_text).get("dolor_nrs") is not None
+        dolor_grounded = grounded.get("dolor_nrs")
+        respaldo = dolor_grounded is not None
         if sin_dominio or (float(dolor) < 5 and not respaldo):
             out.pop("dolor_nrs")
-    if out.get("fiebre_c") is not None and not (
-            re.search(r"fiebre|temperatur|calentur|grados|termometr|febril", tn)
-            and re.search(r"\d", tnum)):
-        out.pop("fiebre_c")
+        elif respaldo:
+            # El número literal manda sobre una cifra distinta inventada por
+            # el modelo pequeño (p. ej. «siete» no puede convertirse en nueve).
+            out["dolor_nrs"] = dolor_grounded
+    if out.get("fiebre_c") is not None:
+        if not (re.search(r"fiebre|temperatur|calentur|grados|termometr|febril", tn)
+                and re.search(r"\d", tnum)):
+            out.pop("fiebre_c")
+        elif grounded.get("fiebre_c") is not None:
+            # Ancla la temperatura a la cifra realmente pronunciada.
+            out["fiebre_c"] = grounded["fiebre_c"]
     # el paciente habla del dolor pero no lo cuantifica → señal blanda de evasión
     if out.get("dolor_nrs") is None and re.search(r"dolor|duele|molest|adolori", tn):
         out["dolor_mencionado_sin_numero"] = True

@@ -22,6 +22,7 @@ from app.agent import prompts
 from app.agent.triage import (SymptomState, TriageResult, combine, evaluate,
                               fallback_extract, merge_worst, quick_red_scan,
                               sanitize_extraction)
+from app.rag.lexicon import interpretar_confirmacion
 from app.rag.search import Source, get_searcher
 
 
@@ -165,9 +166,34 @@ _CLINICAL_HINTS = re.compile(
     r"pierna|brazo|pecho|cabeza|barriga|estomago|estómago|punto|grado|\?|\d",
     re.IGNORECASE)
 
+# Un "?" final de Whisper NO cuenta: con audio telefónico añade interrogación
+# a oraciones declarativas («unos treinta y ocho grados?») y eso disparaba RAG.
+_QUESTION_HINTS = re.compile(
+    r"¿|\b(?:qué|cómo|cuándo|dónde|por qué|para qué|puedo|podría|debo|"
+    r"debería|me puedo|es normal|será normal|quisiera saber|quiero saber|"
+    r"una pregunta|me gustaría saber)\b",
+    re.IGNORECASE)
+_DECLARATIVE_CLINICAL = re.compile(
+    r"\b(?:dolor|fiebre|grados|temperatura|herida|secreci[oó]n|enrojec|"
+    r"hinchaz|camin|apetito|sue[nñ]o|muy bien|normal)\b",
+    re.IGNORECASE)
+
 
 def _worth_extracting(text: str) -> bool:
     return len(text) > 80 or bool(_CLINICAL_HINTS.search(text))
+
+
+def _patient_asked_question(text: str) -> bool:
+    """Evita que el extractor copie la pregunta previa de Clara como si fuera
+    una duda del paciente cuando este únicamente respondió un dato clínico."""
+    t = text.strip()
+    # dato clínico declarado + "?" espurio del ASR → no es pregunta
+    if _DECLARATIVE_CLINICAL.search(t) and not re.search(
+            r"\b(?:qué|cómo|cuándo|dónde|por qué|para qué|puedo|debo|"
+            r"debería|me puedo|es normal|una pregunta|quisiera|quiero saber)\b",
+            t, re.I):
+        return False
+    return bool(_QUESTION_HINTS.search(t))
 
 
 def _extraction_messages(state: CallState, user_text: str) -> list[dict]:
@@ -197,6 +223,37 @@ def process_turn(state: CallState, user_text: str,
     state.texto_final = None
     state.checklist_pendiente = None
     state.transcript.append(f"PACIENTE: {user_text}")
+    # Las confirmaciones de una alerta son un turno cerrado y determinista:
+    # no pasar un «sí, quedó claro» por el LLM evita que vuelva a reinterpretarlo.
+    # Tras alerta, se acepta aunque Clara no haya repetido «¿quedó claro?»
+    # (el paciente suele confirmar tras el segundo turno de protocolo).
+    conf_alerta = None
+    if state.alerted:
+        conf_alerta = interpretar_confirmacion(
+            user_text, "¿Me confirma que quedó claro?")
+        if conf_alerta is None and re.search(
+                r"\b(?:s[ií]|claro)\b.{0,20}qued|\bqued[oó]\s+claro\b",
+                user_text, re.I):
+            conf_alerta = "Sí, quedó claro."
+    if conf_alerta:
+        user_text = conf_alerta
+        if conf_alerta.startswith("Sí"):
+            text = (
+                f"Gracias por confirmarlo, {p.nombre.split()[0]}. "
+                "El equipo médico recibirá la alerta y lo contactará lo antes posible."
+            )
+        else:
+            text = (
+                "Claro. No espere si se siente peor o presenta más síntomas: "
+                "acuda a urgencias. ¿Qué parte necesita que le repita?"
+            )
+        state.history.append({"role": "user", "content": user_text})
+        state.history.append({"role": "assistant", "content": text})
+        state.transcript.append(f"AGENTE: {text}")
+        tm.set(triaje=state.nivel, confirmacion_alerta=True,
+               tokens_in=0, tokens_out=0, llm_calls=0, rag_queries=0)
+        yield text
+        return
     señal = quick_red_scan(user_text)
     if señal and not state.alerted:
         state.nivel = "rojo"
@@ -248,6 +305,8 @@ def process_turn(state: CallState, user_text: str,
     # el anclaje valida contra el texto original MÁS el corregido: una señal
     # legítima recuperada por la corrección no debe descartarse
     ext = sanitize_extraction(ext, user_text + " " + corregido)
+    if ext.get("pregunta") and not _patient_asked_question(user_text):
+        ext.pop("pregunta")
     # red de seguridad determinista: si el LLM falló, omitió o subestimó un
     # síntoma numérico de alarma, las reglas lo recuperan (falso negativo = falla
     # catastrófica). Se funde quedándose siempre con lo más grave.
@@ -304,11 +363,20 @@ def process_turn(state: CallState, user_text: str,
                  "pregunta": pregunta, "turno": state.turno})
 
     # 5) Respuesta conversacional
-    guidance = []
+    guidance = [
+        "Habla de forma natural y directa: no digas «gracias por compartir conmigo», "
+        "no repitas toda la respuesta del paciente y mantén SIEMPRE el trato de usted "
+        "(prohibido tú/te/tu/tienes/puedes/debes). "
+        "Termina con exactamente una pregunta; no la reformules con una segunda pregunta."
+    ]
     if tri.faltantes:
         guidance.append("Antes de nada, indaga con tacto: " + "; ".join(tri.faltantes) + ".")
-    if state.nivel == "amarillo" and prev == "verde":
-        guidance.append("Hay síntomas que vigilar: reconócelo con calma. PROHIBIDO decir que es normal o quitarle importancia. Di que es algo que conviene revisar y que el equipo de enfermería lo contactará hoy mismo.")
+    if state.nivel == "amarillo":
+        guidance.append("Hay síntomas que vigilar: reconózcalos con calma. PROHIBIDO decir que son normales, leves o que «no parecen graves». Diga que conviene vigilarlos y que el equipo de enfermería lo contactará hoy.")
+    if ext.get("fiebre_c") is not None and 38.0 <= float(ext["fiebre_c"]) < 38.5:
+        guidance.append(
+            f"El paciente dijo exactamente {float(ext['fiebre_c']):g} grados: "
+            "no cambie esa cifra. Requiere vigilancia; no la minimice ni sugiera un diagnóstico.")
     if pregunta and sources:
         guidance.append("Responde la duda usando SOLO las fuentes, citando [n].")
     elif pregunta and not sources:
@@ -331,7 +399,8 @@ def process_turn(state: CallState, user_text: str,
             {"role": "system", "content":
              "Eres «Clara», asistente de voz de seguimiento postoperatorio en Colombia. "
              "Responde la duda del paciente en máximo 2-3 frases habladas, en español, "
-             "trato de usted, usando SOLO las fuentes y citando [n]. Si las fuentes no "
+             "trato de usted y con tono natural, usando SOLO las fuentes y citando [n]. "
+             "Evita fórmulas mecánicas y no repitas la pregunta. Si las fuentes no "
              "responden la duda, dilo honestamente y ofrece remitirla al equipo de salud.\n\n"
              + prompts.PLANTILLA_FUENTES.format(fuentes=_format_sources(sources))},
             {"role": "user", "content": f"{ctx}\nDuda: {pregunta}\n({user_text})"},

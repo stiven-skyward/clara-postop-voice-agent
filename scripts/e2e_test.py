@@ -37,14 +37,17 @@ def patient_audio(text: str) -> np.ndarray:
     audio = np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768.0
     x = np.arange(0, len(audio), sr / 16000.0)
     a16 = np.interp(x, np.arange(len(audio)), audio).astype(np.float32)
-    sil = np.zeros(int(16000 * 0.8), dtype=np.float32)
+    # El VAD necesita el silencio configurado más margen para su estado
+    # recurrente y el filtro paso-alto del servidor.
+    sil_s = config.VAD_SILENCE_MS / 1000.0 + 0.8
+    sil = np.zeros(int(16000 * sil_s), dtype=np.float32)
     return np.concatenate([np.zeros(1600, np.float32), a16, sil])
 
 
 async def main():
     uri = f"ws://{config.WEB_HOST}:{config.WEB_PORT}/ws/call"
     async with connect(uri, max_size=None) as ws:
-        await ws.send(json.dumps({"type": "start", "patient": {
+        await ws.send(json.dumps({"type": "start", "sample_rate": 16000, "patient": {
             "nombre": "Carlos Prueba", "edad": 58,
             "procedimiento": "Apendicectomía", "dia_postop": 3,
             "escenario": "apendicectomia", "paciente_id": "e2e"}}))

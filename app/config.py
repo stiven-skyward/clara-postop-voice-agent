@@ -48,7 +48,7 @@ TTS_ENGINE = os.getenv("POSTOP_TTS", "kokoro" if PROFILE == "principal" else "pi
 KOKORO_MODEL = MODELS_DIR / "kokoro-v1.0.onnx"
 KOKORO_VOICES = MODELS_DIR / "voices-v1.0.bin"
 KOKORO_VOICE = os.getenv("POSTOP_KOKORO_VOICE", "ef_dora")
-TTS_SPEED = float(os.getenv("POSTOP_TTS_SPEED", "1.0"))
+TTS_SPEED = float(os.getenv("POSTOP_TTS_SPEED", "0.95"))
 PIPER_VOICE = MODELS_DIR / os.getenv("POSTOP_PIPER_VOICE", "es_MX-claude-high.onnx")
 
 # --- VAD ---

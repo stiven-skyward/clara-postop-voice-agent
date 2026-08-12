@@ -36,6 +36,7 @@
 
 <script>
 let ws, ac, mic, workletNode, playCtx, playQueue = [], playing = false, srOut = 24000;
+let ending = false;
 const $ = id => document.getElementById(id);
 
 async function loadPatients(){
@@ -109,11 +110,21 @@ async function drain(){
 }
 
 $('btnStart').onclick = async () => {
+  ending = false;
+  $('btnStart').disabled = true;
+  $('status').style.color = '';
+  $('log').replaceChildren();
+  $('summary').replaceChildren();
+  $('summary').style.display = 'none';
+  $('sumtitle').style.display = 'none';
+  $('triaje').style.display = 'none';
   const p = JSON.parse(decodeURIComponent($('patient').value));
   p.dia_postop = parseInt($('day').value);
-  ws = new WebSocket(`ws://${location.host}/ws/call`);
-  ws.binaryType = 'arraybuffer';
-  ws.onopen = async () => {
+  const socket = new WebSocket(`ws://${location.host}/ws/call`);
+  ws = socket;
+  socket.binaryType = 'arraybuffer';
+  socket.onopen = async () => {
+    if(ws !== socket) return;
     try {
       if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
         throw new Error('Este navegador no expone el micrófono. Abra la página en '
@@ -125,12 +136,17 @@ $('btnStart').onclick = async () => {
         channelCount:1}});
       ac = new AudioContext();   // frecuencia nativa: sin conversiones ocultas
       // el servidor necesita saber a qué frecuencia viene el audio
-      ws.send(JSON.stringify({type:'start', patient:p, sample_rate: ac.sampleRate}));
+      socket.send(JSON.stringify({type:'start', patient:p, sample_rate: ac.sampleRate}));
       await ac.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET],{type:'text/javascript'})));
       const srcNode = ac.createMediaStreamSource(mic);
       workletNode = new AudioWorkletNode(ac,'cap');
-      workletNode.port.onmessage = e => { if(ws.readyState===1) ws.send(e.data.buffer); };
+      workletNode.port.onmessage = e => {
+        if(ws === socket && socket.readyState===1) socket.send(e.data.buffer);
+      };
       srcNode.connect(workletNode);
+      // Mantener el grafo Web Audio "tirando" del worklet. El procesador no
+      // escribe salida, así que al destino llegan ceros y no se oye el micrófono.
+      workletNode.connect(ac.destination);
       console.log('[audio] micrófono a', ac.sampleRate, 'Hz →  servidor remuestrea a 16 kHz');
       if(ac.state === 'suspended') await ac.resume();
       $('status').textContent = 'en llamada — hable con naturalidad';
@@ -150,11 +166,13 @@ $('btnStart').onclick = async () => {
       endCall(true);
     }
   };
-  ws.onerror = () => {
+  socket.onerror = () => {
+    if(ws !== socket) return;
     $('status').textContent = '⚠ No hay conexión con el servidor (¿está corriendo scripts/run.sh?)';
     $('status').style.color = '#a1160a';
   };
-  ws.onmessage = ev => {
+  socket.onmessage = ev => {
+    if(ws !== socket) return;
     if(typeof ev.data === 'string'){
       const m = JSON.parse(ev.data);
       if(m.type==='audio_start'){ srOut = m.sr; }
@@ -167,6 +185,10 @@ $('btnStart').onclick = async () => {
         $('triaje').className = 'pill ' + m.triaje; $('triaje').textContent = m.triaje + (m.alerta ? ' · ALERTA' : ''); }
       else if(m.type==='turn_end'){ $('status').textContent='en llamada — hable con naturalidad'; }
       else if(m.type==='user_speech_start'){ stopPlayback(); }
+      else if(m.type==='error'){
+        $('status').textContent='⚠ Error al procesar la voz: ' + m.detail;
+        $('status').style.color='#a1160a';
+      }
       else if(m.type==='call_summary'){
         $('sumtitle').style.display='block'; $('summary').style.display='block';
         $('summary').textContent = JSON.stringify(m.summary, null, 2);
@@ -175,13 +197,27 @@ $('btnStart').onclick = async () => {
       playPCM(new Int16Array(ev.data), srOut);
     }
   };
-  ws.onclose = () => endCall(false);
+  // Un socket viejo puede cerrar DESPUÉS de iniciar otra llamada. Nunca debe
+  // apagar el micrófono ni el AudioContext de la sesión nueva.
+  socket.onclose = () => { if(ws === socket) endCall(false); };
 };
 
 function endCall(sendEnd = true){
-  if(sendEnd && ws && ws.readyState===1) ws.send(JSON.stringify({type:'end'}));
-  if(mic) mic.getTracks().forEach(t=>t.stop());
-  if(ac) ac.close();
+  const socket = ws;
+  if(sendEnd && !ending && socket && socket.readyState===1){
+    socket.send(JSON.stringify({type:'end'}));
+    // No dejar la interfaz esperando el resumen/LLM para terminar la llamada.
+    setTimeout(() => {
+      if(socket.readyState===0 || socket.readyState===1) socket.close(1000, 'usuario colgó');
+    }, 250);
+  }
+  ending = true;
+  stopPlayback();
+  if(mic){ mic.getTracks().forEach(t=>t.stop()); mic = null; }
+  if(workletNode){ try{ workletNode.disconnect(); }catch(e){} workletNode = null; }
+  if(ac){ ac.close().catch(()=>{}); ac = null; }
+  if(playCtx){ playCtx.close().catch(()=>{}); playCtx = null; }
+  ws = null;
   $('btnStart').disabled=false; $('btnEnd').disabled=true;
   $('status').textContent='llamada finalizada';
 }
