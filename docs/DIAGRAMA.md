@@ -5,9 +5,9 @@
 
 ## Versión en imagen (oficial)
 
-![Arquitectura de la solución](diagramas/arquitectura.png)
+![Arquitectura de la solución](diagramas/arquitectura.svg)
 
-![Flujo de decisión del agente por turno](diagramas/flujo-decision.png)
+![Flujo de decisión del agente por turno](diagramas/flujo-decision.svg)
 
 Fuentes editables: [`diagramas/arquitectura.svg`](diagramas/arquitectura.svg) y
 [`diagramas/flujo-decision.svg`](diagramas/flujo-decision.svg). Cada imagen incluye
