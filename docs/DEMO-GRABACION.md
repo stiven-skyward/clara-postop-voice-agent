@@ -234,8 +234,9 @@ No narres bugs. Si un intento falla, di «voy a repetir el turno» y sigue.
 
 ## 5. Entrega
 
-1. Sube el MP4 a YouTube (no listado) o Drive (cualquiera con el enlace).
-2. Pega el enlace en el formulario de **entrega final** de
+**Video publicado:** [https://youtu.be/J8ER2Cx3ItM](https://youtu.be/J8ER2Cx3ItM)
+
+1. El MP4 está en YouTube; el enlace también está en el [README](../README.md).
+2. Pega el mismo enlace en el formulario de **entrega final** de
    [sourcemeridian.com/tech-sphere-challenge](https://sourcemeridian.com/tech-sphere-challenge)
    junto con la URL del repo.
-3. El video **no** va en GitHub. El archivo `docs/DEMO-GRABACION.md` es solo para ti.

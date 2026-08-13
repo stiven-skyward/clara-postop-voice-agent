@@ -2,7 +2,8 @@
 
 > Entregable 03 del Tech Sphere Challenge 2026. Evidencia del proceso: decisiones,
 > prompts, configuraciones y métricas. Complementa al [README](../README.md) y a los
-> [ADRs](DECISIONES-ARQUITECTURA.md).
+> [ADRs](DECISIONES-ARQUITECTURA.md). Demo en video:
+> [https://youtu.be/J8ER2Cx3ItM](https://youtu.be/J8ER2Cx3ItM).
 
 ## 1. Declaración de modelo (compuerta G3)
 

@@ -9,6 +9,9 @@ estructurado** de cada llamada.
 **100 % local, 100 % CPU, 0 GPU, ~$0 de APIs.** Diseñado para correr en un equipo
 básico de 8 GB de RAM.
 
+**Demo (Tech Sphere Challenge 2026):** [https://youtu.be/J8ER2Cx3ItM](https://youtu.be/J8ER2Cx3ItM)
+— llamada de voz, conocimiento vivo (alta/baja), triaje y preguntas frente a cámara.
+
 - Modelo de lenguaje: **Llama 3.2 3B Instruct (Q4_K_M)** — de la lista permitida,
   servido con `llama-server` (llama.cpp). Por qué: ver
   [`docs/DECISIONES-ARQUITECTURA.md`](docs/DECISIONES-ARQUITECTURA.md).
