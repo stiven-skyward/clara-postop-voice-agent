@@ -19,6 +19,10 @@ from typing import Iterator
 
 from app import config, llm, metrics
 from app.agent import prompts
+from app.agent.slots import (
+    PREGUNTAS, ack_for, es_despedida, forzar_usted, parse_slot, slot_from_question,
+    strip_reintro,
+)
 from app.agent.triage import (SymptomState, TriageResult, combine, evaluate,
                               fallback_extract, merge_worst, quick_red_scan,
                               sanitize_extraction)
@@ -53,6 +57,9 @@ class CallState:
     texto_final: str | None = None  # transcripción corregida del último turno
     transcript: list = field(default_factory=list)  # íntegro, sin poda (resumen)
     checklist_pendiente: str | None = None   # dominio entregado, aún sin confirmar
+    aviso_vigilancia: bool = False           # el aviso amarillo se dice una vez
+    expected_slot: str | None = "dolor"      # dato que Clara acaba de pedir
+    despedir: bool = False                   # el paciente cerró la llamada
 
 
 def _system_prompt(p: Patient) -> str:
@@ -77,10 +84,11 @@ def greeting(state: CallState) -> str:
     state.history.append({"role": "assistant", "content": text})
     state.transcript.append(f"AGENTE: {text}")
     state.checklist_done.add("dolor")
+    state.expected_slot = "dolor"
     return text
 
 
-def _next_checklist_hint(state: CallState) -> str | None:
+def _next_checklist_key(state: CallState) -> str | None:
     # lo que el paciente ya contó espontáneamente no se vuelve a preguntar
     s = state.symptoms
     if s.dolor_nrs is not None:
@@ -91,13 +99,13 @@ def _next_checklist_hint(state: CallState) -> str | None:
         state.checklist_done.add("herida")
     if s.apetito is not None or s.sueno is not None:
         state.checklist_done.add("apetito_sueno")
-    for key, desc in prompts.GUION_CHECKLIST:
+    for key, _desc in prompts.GUION_CHECKLIST:
         if key not in state.checklist_done:
             # se marca de forma PROVISIONAL: si el turno se interrumpe antes de
             # que Clara llegue a preguntarlo, se revierte (ver process_turn)
             state.checklist_done.add(key)
             state.checklist_pendiente = key
-            return desc
+            return key
     return None
 
 
@@ -189,9 +197,13 @@ def _patient_asked_question(text: str) -> bool:
     t = text.strip()
     # dato clínico declarado + "?" espurio del ASR → no es pregunta
     if _DECLARATIVE_CLINICAL.search(t) and not re.search(
-            r"\b(?:qué|cómo|cuándo|dónde|por qué|para qué|puedo|debo|"
-            r"debería|me puedo|es normal|una pregunta|quisiera|quiero saber)\b",
+            r"\b(?:qué|cuándo|dónde|por qué|para qué|puedo|debo|"
+            r"debería|me puedo|es normal|una pregunta|quisiera|quiero saber|"
+            r"código|cu[aá]l es)\b",
             t, re.I):
+        return False
+    # «¿Cómo bien?» / «¿Cómo va?» cortos son respuestas, no dudas
+    if re.fullmatch(r"¿?\s*c[oó]mo?\s+(?:bien|mal|normal|regular)\s*[.?¿]?", t.strip(), re.I):
         return False
     return bool(_QUESTION_HINTS.search(t))
 
@@ -252,6 +264,18 @@ def process_turn(state: CallState, user_text: str,
         state.transcript.append(f"AGENTE: {text}")
         tm.set(triaje=state.nivel, confirmacion_alerta=True,
                tokens_in=0, tokens_out=0, llm_calls=0, rag_queries=0)
+        state.expected_slot = None
+        yield text
+        return
+    if es_despedida(user_text, state.expected_slot, state.alerted):
+        nombre = p.nombre.split()[0]
+        text = f"Con gusto, {nombre}. Que se mejore. Hasta luego."
+        state.despedir = True
+        state.expected_slot = None
+        state.history.append({"role": "user", "content": user_text})
+        state.history.append({"role": "assistant", "content": text})
+        state.transcript.append(f"AGENTE: {text}")
+        tm.set(despedida=True, tokens_in=0, tokens_out=0, llm_calls=0, rag_queries=0)
         yield text
         return
     señal = quick_red_scan(user_text)
@@ -285,6 +309,68 @@ def process_turn(state: CallState, user_text: str,
             pass
         tm.set(tokens_in=stats.prompt_tokens, tokens_out=stats.completion_tokens,
                llm_calls=stats.calls, rag_queries=0)
+        return
+
+    # 0b) Si el paciente ya respondió el dato que se le pidió, se registra y
+    #     se avanza el guion sin extracción ni conversación al LLM (~15 s).
+    last_q = next((m["content"] for m in reversed(state.history)
+                   if m["role"] == "assistant"), "")
+    slot = state.expected_slot or slot_from_question(last_q)
+    status, ext_slot = parse_slot(slot, user_text)
+    if status == "unclear":
+        text = ("Disculpe, no alcancé a escucharle bien. "
+                "¿Me lo puede repetir, por favor?")
+        state.history.append({"role": "user", "content": user_text})
+        state.history.append({"role": "assistant", "content": text})
+        state.transcript.append(f"AGENTE: {text}")
+        tm.set(no_entendido=True, slot=slot, tokens_in=0, tokens_out=0,
+               llm_calls=0, rag_queries=0)
+        yield text
+        return
+    if status == "filled":
+        if ext_slot.pop("_sin_fiebre", False):
+            state.checklist_done.add("fiebre")
+        ext_slot = merge_worst(sanitize_extraction(dict(ext_slot), user_text),
+                               fallback_extract(user_text))
+        ext_slot.pop("_sin_fiebre", None)
+        state.symptoms.merge(ext_slot)
+        tri = evaluate(state.symptoms, p.procedimiento, p.dia_postop)
+        prev = state.nivel
+        state.nivel = combine(state.nivel, tri.nivel)
+        if state.nivel != prev or not state.razones:
+            state.razones = list(tri.razones)
+        tm.set(triaje=state.nivel, extraccion=ext_slot, slot_rapido=slot)
+        if state.nivel == "rojo" and not state.alerted:
+            state.alerted = True
+            _persistir_alerta(state, user_text)
+            text = _ESCALATION_MSG.format(nombre=p.nombre.split()[0])
+            state.history.append({"role": "user", "content": user_text})
+            state.history.append({"role": "assistant", "content": text})
+            state.transcript.append(f"AGENTE: {text}")
+            tm.set(tokens_in=0, tokens_out=0, llm_calls=0, rag_queries=0,
+                   escalado=True)
+            yield text
+            return
+        ack = ack_for(slot, ext_slot)
+        extra = ""
+        if state.nivel == "amarillo" and not state.aviso_vigilancia:
+            state.aviso_vigilancia = True
+            extra = (" Conviene vigilarlo; el equipo de enfermería "
+                     "lo contactará hoy.")
+        nxt = _next_checklist_key(state)
+        pregunta = PREGUNTAS.get(nxt or "", "")
+        if not pregunta:
+            pregunta = ("¿Tiene alguna duda sobre su recuperación, "
+                        "o preferiría que cerremos la llamada?")
+            state.expected_slot = None
+        else:
+            state.expected_slot = nxt
+        text = forzar_usted(f"{ack}{extra} {pregunta}".strip())
+        state.history.append({"role": "user", "content": user_text})
+        state.history.append({"role": "assistant", "content": text})
+        state.transcript.append(f"AGENTE: {text}")
+        tm.set(tokens_in=0, tokens_out=0, llm_calls=0, rag_queries=0)
+        yield text
         return
 
     # 1) Extracción estructurada (solo si el turno puede contener información
@@ -365,14 +451,19 @@ def process_turn(state: CallState, user_text: str,
     # 5) Respuesta conversacional
     guidance = [
         "Habla de forma natural y directa: no digas «gracias por compartir conmigo», "
+        "no te presentes de nuevo (prohibido «le habla Clara»), "
         "no repitas toda la respuesta del paciente y mantén SIEMPRE el trato de usted "
         "(prohibido tú/te/tu/tienes/puedes/debes). "
-        "Termina con exactamente una pregunta; no la reformules con una segunda pregunta."
+        "Termina con exactamente una pregunta; no la reformules con una segunda pregunta. "
+        "No preguntes por citas, medicamentos ni estado de ánimo."
     ]
     if tri.faltantes:
         guidance.append("Antes de nada, indaga con tacto: " + "; ".join(tri.faltantes) + ".")
-    if state.nivel == "amarillo":
-        guidance.append("Hay síntomas que vigilar: reconózcalos con calma. PROHIBIDO decir que son normales, leves o que «no parecen graves». Diga que conviene vigilarlos y que el equipo de enfermería lo contactará hoy.")
+    if state.nivel == "amarillo" and not state.aviso_vigilancia:
+        guidance.append("Hay síntomas que vigilar: reconózcalos con calma. PROHIBIDO decir que son normales, leves o que «no parecen graves». Diga UNA vez que conviene vigilarlos y que el equipo de enfermería lo contactará hoy.")
+        state.aviso_vigilancia = True
+    elif state.nivel == "amarillo":
+        guidance.append("Ya se avisó la vigilancia: no la repita. Pase a la siguiente pregunta del chequeo.")
     if ext.get("fiebre_c") is not None and 38.0 <= float(ext["fiebre_c"]) < 38.5:
         guidance.append(
             f"El paciente dijo exactamente {float(ext['fiebre_c']):g} grados: "
@@ -383,11 +474,15 @@ def process_turn(state: CallState, user_text: str,
         guidance.append("No hay fuentes para su duda: reconócelo y ofrece remitirla al equipo de salud.")
     nxt = None
     if not pregunta or len(guidance) == 0:
-        nxt = _next_checklist_hint(state)
+        nxt = _next_checklist_key(state)
         if nxt:
-            guidance.append(f"Luego pregunta por {nxt}.")
+            desc = dict(prompts.GUION_CHECKLIST)[nxt]
+            guidance.append(f"Luego pregunta por {desc}.")
         elif not pregunta:
-            guidance.append("El chequeo está completo: ofrece resolver dudas o despedirte con los próximos pasos.")
+            guidance.append(
+                "El chequeo está completo: ofrece resolver dudas o despedirte. "
+                "NO inventes preguntas nuevas (ni cita, ni medicamentos, ni ánimo)."
+            )
 
     if sources:
         # Respuesta factual con fuentes: llamada LIMPIA sin historial — el
@@ -423,7 +518,7 @@ def process_turn(state: CallState, user_text: str,
         # el barge-in abandona el generador: el historial DEBE quedar
         # consolidado igual (con lo parcial), o el siguiente turno no sabría
         # qué dijo el paciente ni qué alcanzó a responder el agente
-        reply = "".join(parts)
+        reply = forzar_usted(strip_reintro("".join(parts)))
         # si el turno se cortó sin respuesta, el dominio del guion vuelve a la
         # cola: de lo contrario nunca se volvería a preguntar
         if state.checklist_pendiente and len(reply) < 15:
@@ -434,6 +529,9 @@ def process_turn(state: CallState, user_text: str,
         if user_text_final != user_text and state.transcript:
             state.transcript[-1] = f"PACIENTE: {user_text_final}"
         state.transcript.append(f"AGENTE: {reply or '(interrumpido)'}")
+        detected = slot_from_question(reply)
+        if detected:
+            state.expected_slot = detected
     # poda de historial: en voz el contexto clínico vive en SymptomState, no
     # hace falta arrastrar toda la conversación (prefill caro en CPU)
     # en voz el contexto clínico vive en SymptomState; arrastrar más historia

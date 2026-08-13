@@ -22,6 +22,8 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from app import config, llm, metrics, stt, tts
 from app.agent.orchestrator import CallState, Patient, close_call, greeting, process_turn
+from app.agent.slots import (SHORT_SLOTS, forzar_usted, repair_for_slot,
+                             slot_from_question, strip_reintro)
 from app.rag import ingest
 from app.rag.lexicon import (interpretar_confirmacion,
                              interpretar_numero_hablado, repair_asr)
@@ -311,11 +313,19 @@ async def ws_call(ws: WebSocket):
 
     def speak(text: str, tm: metrics.TurnMetrics | None, cached: bool = False) -> None:
         """Sintetiza y envía una oración; marca primer audio si aplica."""
-        pcm, sr = (tts.synthesize_cached if cached else tts.synthesize)(text)
-        # el barge-in puede haber ocurrido DURANTE la síntesis: no pisar al paciente
-        if not pcm or cancel.is_set():
+        text = forzar_usted(strip_reintro(text or "")).strip()
+        if not text:
             return
-        if tm is not None and "t_tts_first_audio" not in tm.d:
+        pcm, sr = (tts.synthesize_cached if cached else tts.synthesize)(text)
+        if not pcm:
+            return
+        # La primera oración del turno siempre se envía: un eco o la cola del
+        # mismo habla no puede dejar a Clara muda. El barge-in sí corta las
+        # oraciones siguientes.
+        primera = tm is not None and "t_tts_first_audio" not in tm.d
+        if cancel.is_set() and not primera:
+            return
+        if tm is not None and primera:
             tm.mark("tts_first_audio")
         send_audio(sr, text, bytes(pcm))
 
@@ -341,10 +351,22 @@ async def ws_call(ws: WebSocket):
         # la última pregunta de Clara sesga el decodificador de whisper
         last_q = next((m["content"] for m in reversed(state.history)
                        if m["role"] == "assistant"), None)
-        tm.set(audio=calidad_audio(audio))
+        slot = state.expected_slot or slot_from_question(last_q)
+        stt_slot = slot or "cierre"
+        cal = calidad_audio(audio)
+        tm.set(audio=cal)
+        # VAD a veces cierra un retumbe o eco como si fuera un turno: no
+        # transcribirlo (Whisper alucina «¡Adiós!» y tumba la llamada).
+        rms = float(cal.get("rms") or 0)
+        voz = float(cal.get("pct_voz_300_3k") or 0)
+        if audio.size >= 800 and (rms < 0.02 or voz < 12):
+            tm.set(descartado_ruido=True)
+            tm.save()
+            send({"type": "turn_end"})
+            return
         if config.GUARDAR_AUDIO:
             _guardar_wav(audio, state.call_id, state.turno + 1)
-        text = stt.transcribe(audio, context=last_q)
+        text = stt.transcribe(audio, context=last_q, slot=stt_slot)
         tm.mark("stt_done")
         if text:
             # Whisper suele colgar un "?" a oraciones declarativas; eso no es
@@ -363,21 +385,21 @@ async def ws_call(ws: WebSocket):
             # si Clara acaba de pedir la escala de dolor y la respuesta es corta,
             # se resuelve fonéticamente contra los números (whisper convierte
             # "seis" en "Sais" y "ocho" en "Achoo" con audio de medio segundo)
-            elif last_q and re.search(r"0 a 10|cero a diez|escala", last_q):
+            elif slot == "dolor" or (last_q and re.search(r"0 a 10|cero a diez|escala|dolor", last_q)):
                 num = interpretar_numero_hablado(text)
                 if num:
                     if num not in text.lower():
                         tm.set(numero_corregido=[text, num])
-                    text = num
+                    text = f"el dolor está en {num}" if "dolor" not in text.lower() else text
                 else:
-                    # sin número reconocido se deja pasar el texto tal cual:
-                    # "muy bien", "casi nada" o "poquito" son respuestas
-                    # legítimas a la escala y el agente pedirá el número si
-                    # hace falta. Descartarlas dejaba al paciente sin voz.
                     tm.set(numero_no_reconocido=True)
             text, reparaciones = repair_asr(text)
             if reparaciones:
                 tm.set(asr_reparado=reparaciones)
+            reparado_slot = repair_for_slot(stt_slot, text)
+            if reparado_slot != text:
+                tm.set(slot_reparado=[text, reparado_slot])
+                text = reparado_slot
         if not text:
             # reparación conversacional: nunca dejar silencio muerto
             n = min(unclear["n"], len(_CLARIFY) - 1)
@@ -404,31 +426,43 @@ async def ws_call(ws: WebSocket):
             return
         unclear["n"] = 0
         send({"type": "transcript", "text": text})
+        # El barge-in durante el STT es casi siempre eco o la cola del mismo
+        # turno. Si no se limpia, Clara calcula la respuesta y no la dice.
+        cancel.clear()
         streamer = tts.SentenceStreamer()
         first_tok = False
         reply_parts = []
         for tok in process_turn(state, text, tm):
-            if cancel.is_set():
-                break
+            reply_parts.append(tok)
             if not first_tok:
                 tm.mark("llm_first_token")
                 first_tok = True
-            reply_parts.append(tok)
             for sent in streamer.push(tok):
-                # la 1ª oración del escalamiento rojo está pre-sintetizada
                 speak(sent, tm, cached=sent.startswith(("Por lo que me cuenta",
                                                         "Permítame revisar")))
+            if cancel.is_set() and "t_tts_first_audio" in tm.d:
+                break
         rest = streamer.flush()
-        if rest and not cancel.is_set():
+        if rest:
             speak(rest, tm)
         tm.mark("turn_done")
         if state.texto_final:
-            # el LLM corrigió la transcripción: actualizar lo mostrado
             send({"type": "transcript_fix", "text": state.texto_final})
-        send({"type": "agent_text", "text": "".join(reply_parts),
+        reply = forzar_usted(strip_reintro("".join(reply_parts)))
+        if not reply:
+            reply = "De acuerdo. ¿Me lo puede repetir un poco más despacio, por favor?"
+            speak(reply, tm, cached=True)
+        send({"type": "agent_text", "text": reply,
               "triaje": state.nivel, "alerta": state.alerted})
         tm.save()
         send({"type": "turn_end"})
+        if state.despedir:
+            send({"type": "hangup"})
+            return
+        last = state.expected_slot
+        vad.silence_ms = (config.VAD_SILENCE_SHORT_MS
+                          if last in SHORT_SLOTS
+                          else config.VAD_SILENCE_MS)
         # el silencio se cuenta desde que ACABA de sonar la respuesta
         last_activity["t"] = time.monotonic() + audio_pendiente["s"]
         audio_pendiente["s"] = 0.0
@@ -478,6 +512,7 @@ async def ws_call(ws: WebSocket):
                         paciente_id=_txt(p.get("paciente_id"), "", 40),
                     ))
                     text = greeting(state)
+                    vad.silence_ms = config.VAD_SILENCE_SHORT_MS
 
                     def _greet(t=text):
                         st = tts.SentenceStreamer()

@@ -8,6 +8,7 @@ import unicodedata
 import numpy as np
 
 from app import config
+from app.agent.slots import stt_prompt_for_slot
 
 _lock = threading.Lock()
 _model = None
@@ -82,7 +83,8 @@ _CONFIRMATION_PROMPT = (
 )
 
 
-def transcribe(audio_f32_16k: np.ndarray, context: str | None = None) -> str:
+def transcribe(audio_f32_16k: np.ndarray, context: str | None = None,
+               slot: str | None = None) -> str:
     """Transcribe audio mono float32 @16 kHz a texto en español.
 
     Defensas contra la alucinación de whisper (que en audio corto o con ruido
@@ -105,8 +107,11 @@ def transcribe(audio_f32_16k: np.ndarray, context: str | None = None) -> str:
 
     # (1) Las respuestas breves se decodifican según el tipo de dato pedido.
     # Un prompt libre hacía «sí, quedó claro» → «y se quede a un lado».
+    slot_prompt = stt_prompt_for_slot(slot)
     if context and _CONFIRMATION_CONTEXT.search(context):
         prompt = _CONFIRMATION_PROMPT
+    elif slot_prompt:
+        prompt = slot_prompt
     elif dur >= 1.6:
         prompt = config.STT_PROMPT + (f" Agente: {context[:140]}" if context else "")
     elif dur >= 0.8:

@@ -73,7 +73,7 @@ class Cap extends AudioWorkletProcessor{
 }
 registerProcessor('cap', Cap);`;
 
-let playGen = 0, curSrc = null;
+let playGen = 0, curSrc = null, pendingHangup = false;
 
 function stopPlayback(){
   playGen++;                       // invalida el drain en curso
@@ -103,14 +103,14 @@ async function drain(){
   }
   if(gen === playGen){
     playing = false;
-    // avisa al servidor: solo AHORA empieza a correr el reloj de silencio,
-    // para no interrumpir al paciente mientras Clara todavía hablaba
     if(ws && ws.readyState === 1) ws.send(JSON.stringify({type:'playback_done'}));
+    if(pendingHangup){ pendingHangup = false; endCall(true); }
   }
 }
 
 $('btnStart').onclick = async () => {
   ending = false;
+  pendingHangup = false;
   $('btnStart').disabled = true;
   $('status').style.color = '';
   $('log').replaceChildren();
@@ -192,6 +192,11 @@ $('btnStart').onclick = async () => {
       else if(m.type==='call_summary'){
         $('sumtitle').style.display='block'; $('summary').style.display='block';
         $('summary').textContent = JSON.stringify(m.summary, null, 2);
+      }
+      else if(m.type==='hangup'){
+        pendingHangup = true;
+        $('status').textContent = 'despedida…';
+        if(!playing) endCall(true);
       }
     } else {
       playPCM(new Int16Array(ev.data), srOut);

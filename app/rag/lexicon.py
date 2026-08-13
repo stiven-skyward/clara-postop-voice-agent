@@ -198,19 +198,33 @@ _NUM_VARIANTES = {
 
 
 def interpretar_numero_hablado(text: str) -> str | None:
-    """Si la respuesta es una o dos palabras y suena a un número del 0 al 10,
-    devuelve ese número en letras. Devuelve None si no aplica."""
+    """Si la respuesta suena a un número del 0 al 10, lo devuelve en letras.
+
+    Acepta una palabra («seis»), dos («el seis») o una frase corta donde el
+    número es el dato («el dolor está en seis»). Si hay varios candidatos,
+    gana el que va junto a «dolor»/«escala»; si no, el último."""
     limpio = re.sub(r"[^\wáéíóúñü ]", " ", text.lower()).strip()
     palabras = [_norm(p) for p in limpio.split() if p]
-    if not palabras or len(palabras) > 2:
+    if not palabras:
         return None
-    for p in palabras:
+    if len(palabras) > 12:
+        return None
+    hallados: list[tuple[int, str]] = []
+    for i, p in enumerate(palabras):
         if re.fullmatch(r"\d{1,2}", p) and 0 <= int(p) <= 10:
-            return p                       # whisper ya devolvió el dígito
+            hallados.append((i, p))
+            continue
         if p in _NUMEROS:
-            return _NUMEROS[p]
+            hallados.append((i, _NUMEROS[p]))
+            continue
         if p in _NUM_VARIANTES:
-            return _NUM_VARIANTES[p]
+            hallados.append((i, _NUM_VARIANTES[p]))
+    if hallados:
+        for i, val in reversed(hallados):
+            ventana = " ".join(palabras[max(0, i - 4): i + 1])
+            if re.search(r"dolor|duele|escala|diez", ventana):
+                return val
+        return hallados[-1][1]
     # Similitud fonética SOLO con alta confianza: devolver un número equivocado
     # («cero» oído como «seis») es peor que no devolver ninguno, porque el
     # agente puede simplemente volver a preguntar.

@@ -32,6 +32,7 @@ class StreamingVAD:
         self._pre: list[np.ndarray] = []          # pre-roll ~300 ms
         self._in_speech = False
         self._silence_ms = 0.0
+        self.silence_ms = config.VAD_SILENCE_MS
 
     def _prob(self, chunk: np.ndarray) -> float:
         x = np.concatenate([self._ctx, chunk])[None, :]
@@ -64,7 +65,7 @@ class StreamingVAD:
                     continue
                 if p < config.VAD_THRESHOLD - 0.15:
                     self._silence_ms += 1000 * CHUNK / SR
-                    if self._silence_ms >= config.VAD_SILENCE_MS:
+                    if self._silence_ms >= self.silence_ms:
                         audio = np.concatenate(self._pre + self._speech)
                         events.append(("speech_end", audio))
                         self._speech, self._pre = [], []

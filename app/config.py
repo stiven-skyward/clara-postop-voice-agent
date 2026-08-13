@@ -56,6 +56,8 @@ VAD_MODEL = MODELS_DIR / "silero_vad.onnx"
 # 650 ms de silencio para cerrar el turno: margen para hablantes lentos o con
 # dificultades del habla, sin penalizar demasiado la latencia
 VAD_SILENCE_MS = int(os.getenv("POSTOP_VAD_SILENCE_MS", "800"))
+# datos cortos (escala de dolor, sí/no): cierra el turno antes
+VAD_SILENCE_SHORT_MS = int(os.getenv("POSTOP_VAD_SILENCE_SHORT_MS", "500"))
 VAD_THRESHOLD = float(os.getenv("POSTOP_VAD_THRESHOLD", "0.35"))
 # tope de un solo turno hablado: protege de ruido continuo que nunca cierre
 VAD_MAX_UTTERANCE_S = float(os.getenv("POSTOP_VAD_MAX_UTTERANCE_S", "30"))
